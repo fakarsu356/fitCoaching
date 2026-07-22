@@ -41,12 +41,12 @@ func (r *MealRepository) FindByStudentAndDate(studentID uint, date time.Time) ([
 	return meals, dbReturn.Error
 
 }
-func (r *MealRepository) SumByDate(studentID uint, date time.Time) (totalKcal uint, totalProtein float32, totalOil float32, err error) {
+func (r *MealRepository) SumByDate(studentID uint, date time.Time) (totalKcal uint, totalProtein float64, totalOil float64, err error) {
 	var meals []entities.Meal
 	dbReturn := r.db.Where("student_id=? AND date=?", studentID, date).Find(&meals)
-	var Oil float32
+	var Oil float64
 	var Kcal uint
-	var Protein float32
+	var Protein float64
 	for _, meal := range meals {
 		Kcal = Kcal + meal.Kcal
 		Oil = Oil + meal.Oil

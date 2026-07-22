@@ -6,6 +6,7 @@ import (
 	"fitcoaching/repository"
 	"fitcoaching/utils"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -32,7 +33,6 @@ func AuthHandler(userRep repository.UserRepository, studentRep repository.Studen
 	return auth
 }
 
-
 func (h *Authorization) KayitStudent(c *gin.Context) {
 
 	data := map[string]interface{}{}
@@ -41,13 +41,16 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 	password := data["password"].(string)
 	passwordH := data["validatePassword"].(string)
 	email := data["email"].(string)
-	role := entities.Role(data["role"].(string))
-	age := data["age"].(int)
-	bodyFatPercentage := data["bodyFatPercentage"].(float32)
-	bodyWeight := data["bodyWeight"].(float32)
-	bodyHeight := data["bodyHeight"].(float32)
+	age := int(data["age"].(float64))
+	bodyFatPercentage := data["bodyFatPercentage"].(float64)
+	bodyWeight := data["bodyWeight"].(float64)
+	bodyHeight := data["bodyHeight"].(float64)
 	gender := entities.Gender(data["gender"].(string))
 
+	if username == "" || password == "" || passwordH == "" || email == "" || age == 0 || bodyFatPercentage == 0 || bodyWeight == 0 || bodyHeight == 0 || gender == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "all places are required"})
+		return
+	}
 	// e mail i kontrol et
 	_, err1 := h.UserRep.Findemail(email)
 	if err1 == nil { // burayı sor
@@ -67,23 +70,22 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 	}
 
 	// öğrenci ile ilgili kontroller
-	if age>50 && age<10{
+	if age > 50 || age < 10 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "doğru değer gir "})
 		return
 	}
-	if bodyFatPercentage>1 && bodyFatPercentage<50 {
+	if bodyFatPercentage < 1.00 || bodyFatPercentage > 50.00 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "doğru değer gir "})
 		return
 	}
-	if bodyWeight<200 && bodyWeight >10{
+	if bodyWeight > 200 || bodyWeight < 10 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "doğru değer gir "})
 		return
 	}
-	if bodyHeight<250 && bodyHeight >50{
+	if bodyHeight > 250 || bodyHeight < 50 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "doğru değer gir "})
 		return
 	}
-	
 
 	// şifre standartlara uygun mu kontrol et
 	if utils.ValidatePassword(password) != nil {
@@ -102,72 +104,117 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 		Username:     username,
 		PasswordHash: password,
 		Email:        email,
-		Role:         role,
+		Role:         entities.StudentR,
+		CreatedAt:    time.Now(),
 	}
-	if user, err := h.UserRep.Create(&user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	realUser, errU := h.UserRep.Create(&user)
+	if errU != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errU.Error()})
 		return
 	}
-	var student entities.Student
-	studen
-		c.JSON(http.StatusCreated, gin.H{"message": "kayıt başarılı"})
+	student := entities.Student{
+		UserID:        realUser.ID,
+		User:          *realUser,
+		Age:           uint(age),
+		BodyWeight:    bodyWeight,
+		FatPercentage: bodyFatPercentage,
+		Gender:        entities.Gender(gender),
+		BodyHeight:    bodyHeight,
+	}
+	errS := h.StudentRep.Create(&student)
+	if errS != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errS.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "kayıt başarılı"})
 }
 
 func (h *Authorization) KayitCoach(c *gin.Context) {
-	var coach entities.Coach
+
 	username := c.PostForm("username")
-	email := c.PostForm("email")
 	password := c.PostForm("password")
 	passwordConfirm := c.PostForm("password_confirm")
-	maxStudent := c.PostForm("max_students")
-	specialty := c.PostForm("specialty")
+	email := c.PostForm("email")
+	maxStudentStr := c.PostForm("max_students")
+	speciality := c.PostForm("speciality")
+	gender := c.PostForm("gender")
 
-	coach.User.Username = username
-	coach.User.Email = email
-	coach.User.PasswordHash = password
-	coach.User.PasswordConfirm = passwordConfirm
-	coach.Specialty = specialty
-
-	// max student kontrolü
-	maxStudents, errS := strconv.Atoi(maxStudent)
-	if errS != nil || maxStudents < 0 || maxStudents > 20 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "geçersiz kontenjan değeri"})
-		return
-	}
-	coach.MaxStudents = maxStudents
-	// e mail i kontrol et
-	_, err1 := h.UserRep.Findemail(email)
-	if err1 == nil {
-		c.JSON(http.StatusBadRequest, "smn already registered with this email")
+	maxStudent, errConv := strconv.Atoi(maxStudentStr)
+	if errConv != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "string dönüştürülemedi "})
 		return
 	}
 
+	if username == "" || password == "" || passwordConfirm == "" || email == "" || maxStudent == 0 || gender == "" || speciality == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "all places are required"})
+		return
+	}
 	// 2 şifre eşleşiyomu kontrol et
 	if passwordConfirm != password {
 		c.JSON(http.StatusBadRequest, "şifreler eşleşmiyor")
 		return
 	}
 	// şifre standartlara uygun mu kontrol et
-	if ValidatePassword(password) != nil {
-		c.JSON(http.StatusBadRequest, ValidatePassword(password).Error())
+	if utils.ValidatePassword(password) != nil {
+		c.JSON(http.StatusBadRequest, utils.ValidatePassword(password).Error())
 		return
 	}
 
 	hashedBytes, hashErr := utils.PasswordHash(password)
 	if hashErr != nil {
 		c.JSON(http.StatusBadRequest, "hashlenemedi") // c.JSON(http.StatusBadRequest, gin.H{"error": "hashlenemedi"})  bu 2 sinin farkı ne
-
+		return
+	}
+	// e mail i kontrol et
+	errE := utils.ValidateEmail(email)
+	if errE != nil {
+		c.JSON(http.StatusBadRequest, " email is not valid")
+		return
+	}
+	_, err1 := h.UserRep.Findemail(email)
+	if err1 == nil {
+		c.JSON(http.StatusBadRequest, "smn already registered with this email")
 		return
 	}
 
-	coach.User.PasswordHash = string(hashedBytes)
+	// max student kontrolü
 
-	if errC := h.CoachRep.Create(&coach); errC != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errC.Error()})
+	if maxStudent < 0 || maxStudent > 20 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "geçersiz kontenjan değeri"})
 		return
 	}
 
+	user := entities.User{
+		Username:        username,
+		PasswordHash:    string(hashedBytes),
+		PasswordConfirm: "",
+		Email:           email,
+		Role:            entities.CoachR,
+		CreatedAt:       time.Now(),
+	}
+	realUser, errR := h.UserRep.Create(&user)
+
+	if errR != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errR.Error()})
+		return
+	}
+
+	coach := entities.Coach{
+		UserID:      realUser.ID,
+		User:        *realUser,
+		Speciality:  speciality,
+		MaxStudents: maxStudent,
+		Status:      entities.Free,
+		Gender:      entities.Gender(gender),
+	}
+	errCoach := h.CoachRep.Create(&coach)
+	if errCoach != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errCoach.Error()})
+		return
+	}
 	// bu formun işlemleri
+	log.Printf("İşlemler devam ediyor")
 
 	form, errF := c.MultipartForm()
 	if errF != nil {
@@ -202,43 +249,67 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "sadece PDF, JPEG veya PNG kabul edilir"})
 			return
 		}
+		str := strconv.FormatUint(uint64(realUser.ID), 10)
+
+		fileDbName := str + "_" + time.Now().String()
 
 		document := entities.Document{
-			UploaderID: coach.User.ID,  //ai buraya delirdi neden sor
-			UniqueName: fileH.Filename, //enes abiye sor buraya ne yapcaz diye structı goster doğrumu diye
+			UploaderID: realUser.ID,
+			UniqueName: fileDbName,
 			DocName:    fileH.Filename,
-			Size:       float32(fileH.Size),
+			Size:       float64(fileH.Size),
 			Date:       time.Now(),
 			DocType:    contentType,
 			File:       fileBytes,
 		}
 
-		h.DocumentRep.Create(&document)
+		errDoc := h.DocumentRep.Create(&document)
+		if errDoc != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "oluşturulamadı doküman"})
+			return
+		}
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Succesfully registered"})
 }
 
-func (h *Authorization) LogIn(c *gin.Context) { // burayıbaştan yaz buranın mimariis farklı farklı şekilde kontrol ediliyor
-	var user entities.User // doğrumu burası ai logininptut kullan dedi
-	err := c.ShouldBind(&user)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "kullanıcı bulunamadı"})
+func (h *Authorization) LogIn(c *gin.Context) {
+	data := map[string]interface{}{}
+	c.ShouldBindJSON(&data)
+
+	password := data["password"].(string)
+	email := data["email"].(string)
+
+	errMail := utils.ValidateEmail(email)
+	if errMail != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "mail is not valid  "})
+		return
+	}
+	errPassord := utils.ValidatePassword(password)
+	if errPassord != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password is not valid"})
 		return
 	}
 
-	dbUser, dbErr := h.UserRep.FindByUsername(user.Username)
+	dbUser, dbErr := h.UserRep.FindByEmail(email)
 	if dbErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "userrepo dan gelmedi user"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "hata var ama mailden mi şifreden mi bilinmiyor "})
 		return
 	}
 
-	errB := bcrypt.CompareHashAndPassword([]byte(dbUser.PasswordHash), []byte(user.PasswordHash))
+	errB := bcrypt.CompareHashAndPassword([]byte(dbUser.PasswordHash), []byte(password))
 	if errB != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "kullanıcı adı veya şifre hatalı"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "hata var "})
 		return
 	}
 
 	// token kısmı
+	token, tokenError := utils.GenerateToken(dbUser.ID, dbUser.Role)
+	if tokenError != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token could not create"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "token created", "token": token, "role": dbUser.Role})
 
 }

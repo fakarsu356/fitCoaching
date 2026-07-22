@@ -14,7 +14,7 @@ func StudentCons(db *gorm.DB) *StudentRepository {
 
 	return &StudentRepository{db: db}
 }
-func (r *StudentRepository) Create(student entities.Student) error {
+func (r *StudentRepository) Create(student *entities.Student) error {
 
 	return r.db.Create(&student).Error
 }

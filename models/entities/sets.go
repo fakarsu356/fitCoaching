@@ -6,5 +6,5 @@ type Set struct {
 	MovementName string `gorm:"size:32"`
 	SetNumber    uint
 	Reps         uint
-	Weight       float32
+	Weight       float64
 }

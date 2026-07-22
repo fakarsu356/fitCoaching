@@ -46,3 +46,10 @@ func (r *CoachRepository) FindByUserID(userID uint) (*entities.Coach, error) {
 
 	return &coach, dbReturn.Error
 }
+func (r *CoachRepository) GetAllFrees() ([]entities.Coach, error) {
+
+	var coaches []entities.Coach
+	dbRet := r.db.Where("status = ?", entities.Free).Find(coaches)
+	return coaches, dbRet.Error
+
+}

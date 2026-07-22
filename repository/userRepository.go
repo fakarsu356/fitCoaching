@@ -55,3 +55,8 @@ var user entities.User
 		return user,dbRet.Error
 	
 }
+func (r *UserRepository) FindByEmail(email string) (entities.User,error){
+	var user entities.User
+	dbRet:=r.db.Where("email= ?",email).First(&user)
+	return  user,dbRet.Error
+}
