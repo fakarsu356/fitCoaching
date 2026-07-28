@@ -16,8 +16,8 @@ type User struct {
 type Role string
 
 const (
-	StudentR Role = "Student"
-	CoachR   Role = "Coach"
+	StudentR Role = "student"
+	CoachR   Role = "coach"
 )
 
 /*@startuml FitCoaching_ERD

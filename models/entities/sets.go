@@ -1,5 +1,7 @@
 package entities
 
+import "time"
+
 type Set struct {
 	ID           uint
 	WorkoutID    uint
@@ -7,4 +9,5 @@ type Set struct {
 	SetNumber    uint
 	Reps         uint
 	Weight       float64
+	Date         time.Time
 }

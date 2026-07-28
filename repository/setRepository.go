@@ -10,10 +10,10 @@ type SetRepository struct {
 	db *gorm.DB
 }
 
-func SetCons(db *gorm.DB) *SetRepository {
-	return &SetRepository{db: db}
+func SetCons(db *gorm.DB) SetRepository {
+	return SetRepository{db: db}
 }
-func (r *SetRepository) Create(set entities.Set) error {
+func (r *SetRepository) Create(set *entities.Set) error {
 
 	return r.db.Create(&set).Error
 

@@ -7,7 +7,7 @@ type Relation struct {
 	StudentID     uint
 	CoachID       uint
 	Status        RequestStatus `gorm:"size:20;default:waiting"`
-	RequestedTime time.Time 
+	RequestedTime time.Time
 	DeletedTime   *time.Time
 	StartedTime   time.Time
 	EndedTime     time.Time

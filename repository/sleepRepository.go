@@ -10,8 +10,8 @@ type SleepRepository struct {
 	db *gorm.DB
 }
 
-func SleepCons(db *gorm.DB) *SleepRepository {
-	return &SleepRepository{db: db}
+func SleepCons(db *gorm.DB) SleepRepository {
+	return SleepRepository{db: db}
 }
 
 func (r *SleepRepository) Create(sleep entities.Sleep) error {

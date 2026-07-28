@@ -3,10 +3,7 @@ package utils
 import (
 	"errors"
 	"net/mail"
-	"os"
 	"regexp"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 func ValidateEmail(email string) error {
@@ -29,27 +26,10 @@ func ValidatePassword(password string) error {
 		return errors.New("şifre en az 1 rakam içermeli")
 	}
 
-	hasSpecial, _ := regexp.MatchString(`[!@#$%^&*]`, password)
+	hasSpecial, _ := regexp.MatchString(`[.!@#$%^&*]`, password)
 	if !hasSpecial {
 		return errors.New("şifre en az 1 özel karakter içermeli")
 	}
 
 	return nil
-}
-
-func ValidateToken(tokenStr string) (jwt.MapClaims, error) {
-
-	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
-		return []byte(os.Getenv("JWT_SECRET")), nil
-	})
-	if err != nil || !token.Valid {
-		return nil, errors.New("geçersiz token")
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil, errors.New("claims okunamadı")
-	}
-
-	return claims, nil
 }

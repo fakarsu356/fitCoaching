@@ -10,8 +10,8 @@ type CoachRepository struct {
 	db *gorm.DB
 }
 
-func CoachCons(db *gorm.DB) *CoachRepository {
-	return &CoachRepository{db: db}
+func CoachCons(db *gorm.DB) CoachRepository {
+	return CoachRepository{db: db}
 }
 func (r *CoachRepository) Create(coach *entities.Coach) error {
 
@@ -28,7 +28,7 @@ func (r *CoachRepository) Delete(id int) error {
 	return r.db.Delete(&entities.Coach{}, id).Error
 
 }
-func (r *CoachRepository) GetById(id int) (entities.Coach, error) {
+func (r *CoachRepository) GetById(id uint) (entities.Coach, error) {
 	var coach entities.Coach
 	dbReturn := r.db.First(&coach, id)
 

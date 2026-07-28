@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fitcoaching/models/entities"
 	"os"
 	"time"
@@ -27,4 +28,19 @@ func GenerateToken(userID uint, role entities.Role) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	secret := os.Getenv("JWT_SECRET")
 	return token.SignedString([]byte(secret))
+}
+
+func ValidateToken(tokenStr string) (*Claims, error) {
+	claims := &Claims{}
+
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
+		return []byte(os.Getenv("JWT_SECRET")), nil
+	})
+
+	if err != nil || !token.Valid {
+
+		return nil, errors.New("geçersiz token")
+	}
+
+	return claims, nil
 }

@@ -10,8 +10,8 @@ type DocumentRepository struct {
 	db *gorm.DB
 }
 
-func DocumentCons(db *gorm.DB) *DocumentRepository {
-	return &DocumentRepository{db: db}
+func DocumentCons(db *gorm.DB) DocumentRepository {
+	return DocumentRepository{db: db}
 }
 func (r *DocumentRepository) Create(document *entities.Document) error {
 

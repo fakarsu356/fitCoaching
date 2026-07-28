@@ -10,11 +10,11 @@ type UserRepository struct {
 	db *gorm.DB
 }
 
-func UserCons(db *gorm.DB) *UserRepository {
-	return &UserRepository{db: db}
+func UserCons(db *gorm.DB) UserRepository {
+	return UserRepository{db: db}
 }
-func (r *UserRepository) Create(user *entities.User)(*entities.User, error) {
-	err:=r.db.Create(user).Error
+func (r *UserRepository) Create(user *entities.User) (*entities.User, error) {
+	err := r.db.Create(user).Error
 	return user, err
 
 }
@@ -29,34 +29,34 @@ func (r *UserRepository) Delete(id int) error {
 
 }
 
-func (r *UserRepository) GetById(id int) ( entities.User ,error) {
-var user entities.User
-	 dbReturn := r.db.First(&user,id)
-	  
-	 return  user,dbReturn.Error
+func (r *UserRepository) GetById(id int) (entities.User, error) {
+	var user entities.User
+	dbReturn := r.db.First(&user, id)
+
+	return user, dbReturn.Error
 
 }
-func (r *UserRepository) Findemail(email string) (string,error){
+func (r *UserRepository) Findemail(email string) (string, error) {
 
 	var Email string
-	dbRet:=r.db.Where("email=?",email).First(Email)
-		return Email,dbRet.Error
-	
+	dbRet := r.db.Where("email=?", email).First(Email)
+	return Email, dbRet.Error
+
 }
-func (r *UserRepository) HashedPassword(id int) (string,error){
-var user entities.User
-	dbRet:=r.db.Where("id=?",id).Find(&user)
-		return user.PasswordHash,dbRet.Error
-	
-}
-func (r *UserRepository) FindByUsername(name string) (entities.User,error){
-var user entities.User
-	dbRet:=r.db.Where("username=?",name).Find(&user)
-		return user,dbRet.Error
-	
-}
-func (r *UserRepository) FindByEmail(email string) (entities.User,error){
+func (r *UserRepository) HashedPassword(id int) (string, error) {
 	var user entities.User
-	dbRet:=r.db.Where("email= ?",email).First(&user)
-	return  user,dbRet.Error
+	dbRet := r.db.Where("id=?", id).Find(&user)
+	return user.PasswordHash, dbRet.Error
+
+}
+func (r *UserRepository) FindByUsername(name string) (entities.User, error) {
+	var user entities.User
+	dbRet := r.db.Where("username=?", name).Find(&user)
+	return user, dbRet.Error
+
+}
+func (r *UserRepository) FindByEmail(email string) (entities.User, error) {
+	var user entities.User
+	dbRet := r.db.Where("email= ?", email).First(&user)
+	return user, dbRet.Error
 }
