@@ -27,7 +27,6 @@ func MealCons(userRep repository.UserRepository, studentRep repository.StudentRe
 		MealRep:     mealRep,
 	}
 	return sleep
-
 }
 
 func (w *MealS) AddMeal(c *gin.Context) {
