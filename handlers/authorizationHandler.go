@@ -20,15 +20,17 @@ type Authorization struct {
 	StudentRep  repository.StudentRepository
 	CoachRep    repository.CoachRepository
 	DocumentRep repository.DocumentRepository
+	TokenRep    repository.TokenRepository
 }
 
-func AuthHandler(userRep repository.UserRepository, studentRep repository.StudentRepository,
-	coachRep repository.CoachRepository, documentRep repository.DocumentRepository) *Authorization {
+func AuthCons(userRep repository.UserRepository, studentRep repository.StudentRepository,
+	coachRep repository.CoachRepository, documentRep repository.DocumentRepository, tokenRep repository.TokenRepository) *Authorization {
 	auth := &Authorization{}
 	auth.UserRep = userRep
 	auth.StudentRep = studentRep
 	auth.CoachRep = coachRep
 	auth.DocumentRep = documentRep
+	auth.TokenRep = tokenRep
 
 	return auth
 }
@@ -205,7 +207,7 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 		User:        *realUser,
 		Speciality:  speciality,
 		MaxStudents: maxStudent,
-		Status:      entities.Free,
+		Capacity:    entities.Free,
 		Gender:      entities.Gender(gender),
 	}
 	errCoach := h.CoachRep.Create(&coach)
@@ -238,9 +240,8 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 
 		//dökümanı okumak için gerekli şeyler
 		fileBytes, errD := io.ReadAll(file) //readall belgedeki tüm byteları okuyor ama read kullansak belli bir değere kadar byteokicak
-
 		if errD != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "dosya okunamadı"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": errD.Error()})
 			return
 		}
 
@@ -274,11 +275,22 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 }
 
 func (h *Authorization) LogIn(c *gin.Context) {
-	data := map[string]interface{}{}
-	c.ShouldBindJSON(&data)
 
-	password := data["password"].(string)
-	email := data["email"].(string)
+	data := map[string]interface{}{}
+	bindErr := c.ShouldBindJSON(&data)
+	if bindErr != nil {
+		utils.Response(c, utils.ResponseS{})
+	}
+
+	password, passOK := data["password"].(string)
+	email, emailOk := data["email"].(string)
+	if passOK != true || emailOk != true {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+	}
 
 	errMail := utils.ValidateEmail(email)
 	if errMail != nil {
@@ -304,12 +316,98 @@ func (h *Authorization) LogIn(c *gin.Context) {
 	}
 
 	// token kısmı
-	token, tokenError := utils.GenerateToken(dbUser.ID, dbUser.Role)
-	if tokenError != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "token could not create"})
+	str, RtokenError := utils.GenerateRefreshToken()
+	if RtokenError != nil {
+		banner := "token could not create"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	refreshToken := entities.RefreshToken{
+		UserID:    dbUser.ID,
+		Token:     str,
+		ExpiresAt: time.Now().Add(30 * 24 * time.Hour), // 30 gün
+	}
+	h.TokenRep.Create(&refreshToken)
+
+	accesstoken, AtokenError := utils.GenerateAccessToken(dbUser.ID, dbUser.Role)
+	if AtokenError != nil {
+		banner := "token could not create"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "token created", "token": token, "role": dbUser.Role})
+	c.JSON(http.StatusOK, gin.H{"message": "tokens are  created", "accesstoken": accesstoken, "refreshtoken": refreshToken.Token, "role": dbUser.Role})
+}
+func (h *Authorization) RefreshAccessToken(c *gin.Context) {
+	body := map[string]interface{}{}
+
+	bindErr := c.ShouldBindJSON(&body)
+	if bindErr != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	refreshToken := body["refreshtoken"]
+	refreshTokenString, ok := refreshToken.(string)
+	if ok != true {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+	}
+
+	compRefToken, tokErr := h.TokenRep.FindByToken(refreshTokenString)
+	if tokErr != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	if compRefToken.ExpiresAt.Before(time.Now()) {
+		banner := "try to login again"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	user, err := h.UserRep.GetById(compRefToken.UserID)
+	if err != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	newAccessToken, err := utils.GenerateAccessToken(user.ID, user.Role)
+	if err != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+		return
+	}
+
+	banner := "success"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:   newAccessToken,
+	})
 
 }

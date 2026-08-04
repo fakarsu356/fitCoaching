@@ -4,8 +4,8 @@ type Coach struct {
 	UserID      uint   `gorm:"primaryKey"`
 	User        User   `gorm:"foreignKey:UserID;"`
 	Speciality  string `gorm:"size:64" binding:"required"`
-	MaxStudents int    `gorm:"default:10"`
-	Status      CoachStatus
+	MaxStudents int    `gorm:"default:10;check:max_students < 20"`
+	Capacity    CoachStatus
 	Gender      Gender
 }
 

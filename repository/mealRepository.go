@@ -70,7 +70,7 @@ func (r *MealRepository) SumByDate(studentID uint, date time.Time) (entities.Mea
 // biraz saçma oldu
 func (r *MealRepository) GetALlMealsByDate(studentID uint, startDate time.Time, endDate time.Time) ([]entities.Meal, error) {
 	var meals []entities.Meal
-	dbReturn := r.db.Select("date, SUM(student_id) as studentID SUM(kcal) as Kcal, SUM(protein) as Protein, SUM(oil) as Oil").
+	dbReturn := r.db.Model(&entities.Meal{}).Select("date, SUM(student_id) as studentID SUM(kcal) as Kcal, SUM(protein) as Protein, SUM(oil) as Oil").
 		Where("student_id = ? AND date BETWEEN ? AND ?", studentID, startDate, endDate).
 		Group("date").Scan(&meals)
 	studentId := int(studentID)

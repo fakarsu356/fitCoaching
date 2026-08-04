@@ -51,5 +51,4 @@ func (r *WorkoutRepository) GetWorkoutsByDate(studentID uint, startData time.Tim
 	var workouts []entities.Workout
 	dbRet := r.db.Where("student_id = ? AND start_date <= ? AND end_date >= ?", studentID, startData, endDate).Find(&workouts)
 	return workouts, dbRet.Error
-
 }

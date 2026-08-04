@@ -29,7 +29,7 @@ func (r *UserRepository) Delete(id int) error {
 
 }
 
-func (r *UserRepository) GetById(id int) (entities.User, error) {
+func (r *UserRepository) GetById(id uint) (entities.User, error) {
 	var user entities.User
 	dbReturn := r.db.First(&user, id)
 
@@ -59,4 +59,9 @@ func (r *UserRepository) FindByEmail(email string) (entities.User, error) {
 	var user entities.User
 	dbRet := r.db.Where("email= ?", email).First(&user)
 	return user, dbRet.Error
+}
+func (r *UserRepository) GetRoleById(id uint) (entities.Role, error) {
+	var user entities.User
+	dbRet := r.db.Where("id= ?", id).First(&user)
+	return user.Role, dbRet.Error
 }

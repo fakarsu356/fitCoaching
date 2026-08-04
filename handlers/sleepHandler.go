@@ -3,6 +3,7 @@ package handlers
 import (
 	"fitcoaching/models/entities"
 	"fitcoaching/repository"
+	"fitcoaching/utils"
 	"net/http"
 	"time"
 
@@ -17,6 +18,7 @@ type SleepS struct {
 	SleepRep    repository.SleepRepository
 }
 
+// kontrol edildi son testler front yazılınca test edilecektir
 func SleepCons(userRep repository.UserRepository, studentRep repository.StudentRepository,
 	coachRep repository.CoachRepository, relationRep repository.RelationRepository, sleepRep repository.SleepRepository) *SleepS {
 	sleep := &SleepS{
@@ -100,39 +102,57 @@ func (s *SleepS) GetSleepByStudent(c *gin.Context) {
 		return
 	}
 
-	Role, converted := role.(string)
+	Role, converted := role.(entities.Role)
 	if converted == false {
 		c.JSON(400, gin.H{"error": "could not converted role"})
 		return
 	}
 
-	if Role == "coach" {
-		data := map[string]interface{}{}
-		bindError := c.ShouldBindQuery(&data)
+	if Role == "Coach" {
+
+		data := map[string]int{}
+		bindError := c.ShouldBindJSON(&data)
 		if bindError != nil {
-			c.JSON(400, gin.H{"error": bindError.Error()})
+			banner := "enter valid data "
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
 			return
 		}
-		studentID := data["student_id"].(float64)
+		studentID := data["student_id"]
 		studentId := uint(studentID)
 
 		status := s.RelationRep.DoesCoachHaveStudent(userId, studentId)
 		if status == false {
-			c.JSON(400, gin.H{"error": "could not find coach have"})
+			banner := "could not find user"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
 			return
 		}
 
 		sleep, dbError := s.SleepRep.FindByStudent(studentId)
 		if dbError != nil {
+			banner := "hata "
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
 			c.JSON(400, gin.H{"error": dbError.Error()})
 			return
 		}
 
-		c.JSON(200, gin.H{"sleep": sleep})
+		banner := "sleep is found"
+		utils.Response(c, utils.ResponseS{
+			Status: true,
+			Banner: &banner,
+			Data:   sleep,
+		})
 	}
 
-	if Role == "student" {
-
+	if Role == "Student" {
 		sleep, dbError := s.SleepRep.FindByStudent(userId)
 		if dbError != nil {
 			c.JSON(400, gin.H{"error": dbError.Error()})

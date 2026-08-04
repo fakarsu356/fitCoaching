@@ -3,6 +3,8 @@ package handlers
 import (
 	"fitcoaching/models/entities"
 	"fitcoaching/repository"
+	"fitcoaching/utils"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -32,13 +34,23 @@ func MealCons(userRep repository.UserRepository, studentRep repository.StudentRe
 func (w *MealS) AddMeal(c *gin.Context) {
 	studentID, status := c.Get("user_id")
 	if status == false {
-		c.JSON(400, gin.H{"error": "could not get user_id"})
+		banner := "could not get user_id"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	studentId, ok := studentID.(uint)
 	if ok == false {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "could not converted"})
+		banner := "could not converted"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
@@ -46,7 +58,12 @@ func (w *MealS) AddMeal(c *gin.Context) {
 
 	bindError := c.ShouldBindJSON(&body)
 	if bindError != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": bindError.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
@@ -66,35 +83,65 @@ func (w *MealS) AddMeal(c *gin.Context) {
 		Oil:         oil}
 	createErr := w.MealRep.Create(&meal)
 	if createErr != nil {
-		c.JSON(200, gin.H{"error": createErr.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": "the meal has been added"})
+	banner := "meal is added"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:   nil,
+	})
 }
-func (w *MealS) GetMealsByStdudent(c *gin.Context) {
+func (w *MealS) GetStudentsMealsByDate(c *gin.Context) {
 
 	userID, statusId := c.Get("user_id")
 	if statusId == false {
-		c.JSON(400, gin.H{"error": "could not get user_id"})
+		banner := "could not get user_id"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	userId, ok := userID.(uint)
 	if ok == false {
-		c.JSON(400, gin.H{"error": "could not converted user_id"})
+		banner := "could not converted user_id"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	role, statusRole := c.Get("role")
 	if statusRole == false {
-		c.JSON(400, gin.H{"error": "could not get user_id"})
+		banner := "could not get user_id"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
-	Role, converted := role.(string)
+	Role, converted := role.(entities.Role)
 	if converted == false {
-		c.JSON(400, gin.H{"error": "could not converted role"})
+		banner := "could not converted role"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
@@ -102,64 +149,111 @@ func (w *MealS) GetMealsByStdudent(c *gin.Context) {
 
 	bindError := c.ShouldBindJSON(&data)
 	if bindError != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": bindError.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	startStr := data["start_date"].(string)
 	startDate, enDerr := time.Parse("2006-01-02 15:04:05", startStr)
 	if enDerr != nil {
-		c.JSON(400, gin.H{"error": enDerr.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	endStr := data["end_date"].(string)
 	endDate, starTerr := time.Parse("2006-01-02 15:04:05", endStr)
 	if starTerr != nil {
-		c.JSON(400, gin.H{"error": starTerr.Error()})
-		return
-	}
-	if !startDate.Before(endDate) {
-		c.JSON(400, gin.H{"error": "start date should be before end date"})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
-	if Role == "coach" {
+	if !startDate.Before(endDate) {
+		banner := "start date should be before end date"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+		return
+	}
+
+	if Role == "Coach" {
 		studentID := data["student_id"].(float64)
 		studentId := uint(studentID)
 
 		status := w.RelationRep.DoesCoachHaveStudent(userId, studentId)
 		if status == false {
-			c.JSON(400, gin.H{"error": "could not find coach student"})
+			banner := "could not find coach student"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
 			return
 		}
 
 		meals, dbRet := w.MealRep.GetALlMealsByDate(studentId, startDate, endDate)
 		if dbRet != nil {
-			c.JSON(400, gin.H{"error": dbRet.Error()})
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
 			return
 		}
 
 		if meals[0].StudentID != studentId {
-			c.JSON(400, gin.H{"error": "kendi verilerine istek at "})
+			banner := "kendi verilerine istek at"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
 			return
 		}
-		c.JSON(200, gin.H{"meals": meals})
+		banner := "success"
+		utils.Response(c, utils.ResponseS{
+			Status: true,
+			Banner: &banner,
+			Data:   meals,
+		})
 	}
 
-	if Role == "student" {
+	if Role == "Student" {
 
 		meals, dbRet := w.MealRep.GetALlMealsByDate(userId, startDate, endDate)
 		if dbRet != nil {
-			c.JSON(400, gin.H{"error": dbRet.Error()})
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
 			return
 		}
-
-		if meals[0].StudentID != userId {
-			c.JSON(400, gin.H{"error": "kendi verilerine istek at "})
-			return
-		}
-		c.JSON(200, gin.H{"meals": meals})
+		fmt.Println("success")
+		banner := "success"
+		utils.Response(c, utils.ResponseS{
+			Status: true,
+			Banner: &banner,
+			Data:   meals,
+		})
 	}
 }
 func (w *MealS) GetMealSumDaily(c *gin.Context) {
@@ -167,24 +261,48 @@ func (w *MealS) GetMealSumDaily(c *gin.Context) {
 	userID, statusId := c.Get("user_id")
 	if statusId == false {
 		c.JSON(400, gin.H{"error": "could not get user_id"})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	userId, ok := userID.(uint)
 	if ok == false {
 		c.JSON(400, gin.H{"error": "could not converted user_id"})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	role, statusRole := c.Get("role")
 	if statusRole == false {
 		c.JSON(400, gin.H{"error": "could not get role"})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
-	Role, converted := role.(string)
+	Role, converted := role.(entities.Role)
 	if converted == false {
 		c.JSON(400, gin.H{"error": "could not converted role"})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
@@ -192,54 +310,114 @@ func (w *MealS) GetMealSumDaily(c *gin.Context) {
 	bindError := c.ShouldBindJSON(&data)
 	if bindError != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": bindError.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	dateStr := data["start_date"].(string)
 	date, enDerr := time.Parse("2006-01-02 15:04:05", dateStr)
 	if enDerr != nil {
 		c.JSON(400, gin.H{"error": enDerr.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	if !date.Before(time.Now()) {
 		c.JSON(400, gin.H{"error": " date should be before now"})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
-	if Role == "coach" {
+	if Role == "Coach" {
 		studentID := data["student_id"].(float64)
 		studentId := uint(studentID)
 
 		status := w.RelationRep.DoesCoachHaveStudent(userId, studentId)
 		if status == false {
 			c.JSON(400, gin.H{"error": "could not find coach student"})
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
 			return
 		}
 
 		meal, dbRet := w.MealRep.SumByDate(studentId, date)
 		if dbRet != nil {
 			c.JSON(400, gin.H{"error": dbRet.Error()})
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
 			return
 		}
 
 		if meal.StudentID != studentId {
 			c.JSON(400, gin.H{"error": "kendi verilerine istek at "})
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
 			return
 		}
 
 		c.JSON(200, gin.H{"meals": meal})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 	}
 
-	if Role == "student" {
+	if Role == "Student" {
 		meal, dbRet := w.MealRep.SumByDate(userId, date)
 		if dbRet != nil {
 			c.JSON(400, gin.H{"error": dbRet.Error()})
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
 			return
 		}
 		if meal.StudentID != userId {
 			c.JSON(400, gin.H{"error": "kendi verilerine istek at "})
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
 			return
 		}
 
 		c.JSON(200, gin.H{"meals": meal})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 	}
 }
 
@@ -247,11 +425,23 @@ func (w *MealS) DeleteMeal(c *gin.Context) {
 	studentID, statusId := c.Get("user_id")
 	if statusId == false {
 		c.JSON(400, gin.H{"error": "could not get user_id"})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	studentId, ok := studentID.(uint)
 	if ok == false {
 		c.JSON(400, gin.H{"error": "could not converted user_id"})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 
 	}
@@ -261,6 +451,12 @@ func (w *MealS) DeleteMeal(c *gin.Context) {
 	bindError := c.ShouldBindJSON(&data)
 	if bindError != nil {
 		c.JSON(400, gin.H{"error": bindError.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
@@ -270,18 +466,42 @@ func (w *MealS) DeleteMeal(c *gin.Context) {
 	meal, err := w.MealRep.GetById(mealId)
 	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	if meal.StudentID != studentId {
 		c.JSON(400, gin.H{"error": "kendi verilerine istek at "})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	dbRet := w.MealRep.Delete(mealId)
 	if dbRet != nil {
 		c.JSON(400, gin.H{"error": dbRet.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	c.JSON(200, gin.H{"status": "deleted"})
+	banner := "hata"
+	utils.Response(c, utils.ResponseS{
+		Status: false,
+		Banner: &banner,
+		Data:   nil,
+	})
 }

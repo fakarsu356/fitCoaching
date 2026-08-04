@@ -10,8 +10,8 @@ type RatingRepository struct {
 	db *gorm.DB
 }
 
-func RatingCons(db *gorm.DB) *RatingRepository {
-	return &RatingRepository{db: db}
+func RatingCons(db *gorm.DB) RatingRepository {
+	return RatingRepository{db: db}
 }
 func (r *RatingRepository) Create(rating entities.Rating) error {
 
@@ -45,12 +45,15 @@ func (r *RatingRepository) FindByStudentAndCoach(studentID, coachID uint) (*enti
 
 func (r *RatingRepository) AverageByCoach(coachID uint) (float64, error) {
 	var ratings []entities.Rating
-	dbRet := r.db.Where(" coach = ?", coachID).First(&ratings)
+	dbRet := r.db.Model(entities.Rating{}).Where(" coach_id = ?", coachID).Find(&ratings)
 	var totalPuan int
 	temp := 0
 	for _, puan := range ratings {
 		totalPuan = totalPuan + puan.Score
 		temp++
+	}
+	if temp == 0 {
+		return -1, dbRet.Error
 	}
 	avrg := totalPuan / temp
 	return float64(avrg), dbRet.Error

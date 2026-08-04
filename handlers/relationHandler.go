@@ -3,8 +3,8 @@ package handlers
 import (
 	"fitcoaching/models/entities"
 	"fitcoaching/repository"
+	"fitcoaching/utils"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -33,12 +33,21 @@ func RelationCons(userRep repository.UserRepository, studentRep repository.Stude
 func (r *RelationS) GetCoaches(c *gin.Context) {
 
 	coaches, err := r.CoachRep.GetAllFrees()
-
+	filteredCoaches := make([]entities.Coach, 0)
+	for _, coach := range coaches {
+		if coach.MaxStudents > r.RelationRep.GetCoachsStudents(coach.UserID) {
+			filteredCoaches = append(filteredCoaches, coach)
+		}
+	}
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		banner := "could not get the coaches"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
-	c.JSON(http.StatusOK, coaches)
+	c.JSON(http.StatusOK, filteredCoaches)
 
 	// enes abi bunda bişey demişti hepsini döndürme diye bunu sor nasıl olacağını
 }
@@ -46,6 +55,7 @@ func (r *RelationS) GetCoaches(c *gin.Context) {
 func (r *RelationS) SendRequest(c *gin.Context) {
 	// öğrencinin koçu var mı kontrol et
 	// öğrencinin bekleyen requesti var mı kontrol et
+	//koçun size ı max mı
 	// öğrenci uygunsa request i gönder koça
 	userIDValue, exists := c.Get("user_id")
 	if !exists {
@@ -62,22 +72,46 @@ func (r *RelationS) SendRequest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "student have a coach"})
 		return
 	}
+
 	_, errC := r.RelationRep.FindStudentRequest(userID)
 	if errC == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "no error "})
+		c.JSON(http.StatusNotFound, gin.H{"error": "zaten 1 isteğin var  "})
+		return
+	}
+	body := map[string]interface{}{}
+	bindErr := c.ShouldBindJSON(&body)
+	if bindErr != nil {
+		banner := "make a valid operation"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	coachID := body["coach_id"].(float64)
+	coachId := uint(coachID)
+	coach, dbErrCoach := r.CoachRep.GetById(coachId)
+	if dbErrCoach != nil {
+		banner := "make a valid operation"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	if coach.MaxStudents <= r.RelationRep.GetCoachsStudents(coachId) {
+		banner := "kapasitene ulaştın"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
 
-	coachId := c.PostForm("coach_id")
-	coachID, errConv := strconv.Atoi(coachId)
-	if errConv != nil {
-		c.JSON(400, gin.H{"error": "coach_id not found"})
-		return
-	}
 	deleteT := time.Now().Add(24 * time.Hour)
 	relation := entities.Relation{
 		StudentID:     userID,
-		CoachID:       uint(coachID),
+		CoachID:       coachId,
 		RequestedTime: time.Now(),
 		Status:        entities.StatusWaiting,
 		DeletedTime:   &deleteT,
@@ -91,7 +125,8 @@ func (r *RelationS) SendRequest(c *gin.Context) {
 }
 
 // bunlarde koçun isteği görmemesi gibi bir durumu handlelamıyoruz galiba ona dikkat et
-
+// koçun kapasite full mu ona bak
+// date expired mı ona bak
 func (r *RelationS) ApproveRequest(c *gin.Context) {
 
 	userID, found := c.Get("user_id")
@@ -104,21 +139,70 @@ func (r *RelationS) ApproveRequest(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user_id could not converted"})
 		return
 	}
-	relation, errR := r.RelationRep.FindCoachRelationFromCoachId(realCoachId)
-
-	if errR != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errR.Error()})
+	body := map[string]interface{}{}
+	bindErr := c.ShouldBindJSON(&body)
+	if bindErr != nil {
+		banner := "make a valid operation"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
-	if realCoachId != relation.CoachID {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "coach_id does not match"})
+	studentID := body["student_id"].(float64)
+	studentId := uint(studentID)
+
+	relation, dbErr := r.RelationRep.IsRelaitonWaiting(realCoachId, studentId)
+	if dbErr != nil || relation == nil {
+		banner := "db hatası"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
 	}
-	relation.Status = entities.StatusApproved
-	relation.StartedTime = time.Now()
+	deletedTime := *relation.DeletedTime
+	if deletedTime.Before(time.Now()) {
+		banenr := "öğrenci isteğinin süresi doldu"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banenr,
+		})
+		return
+	}
+	coaches, dbErrC := r.StudentRep.GetCoachsStudents(realCoachId)
+	if dbErrC != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+		return
+	}
+	coach, dbErrC := r.CoachRep.GetById(realCoachId)
+	if dbErrC != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+		return
+	}
+	if len(coaches) >= coach.MaxStudents {
+		banner := "kapasitenizden fazla öğrenci var"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	relation.Status = entities.StatusActive
+	now := time.Now()
+	relation.StartedTime = &now
 
 	dbError := r.RelationRep.Update(relation)
 	if dbError != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": dbError.Error()})
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{"relation": relation})
 
@@ -130,21 +214,39 @@ func (r *RelationS) RejectRequest(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user_id not found"})
 		return
 	}
+
 	realCoachId, ok := userID.(uint)
 	if ok == false {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user_id could not converted"})
 		return
 	}
-	relation, errR := r.RelationRep.FindCoachRelationFromCoachId(realCoachId)
-
-	if errR != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errR.Error()})
+	body := map[string]interface{}{}
+	bindError := c.ShouldBindJSON(&body)
+	if bindError != nil {
+		banner := "make a valid operation"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
-	var zeroTime time.Time
+
+	studentID := body["student_id"].(float64)
+	studentId := uint(studentID)
+
+	relation, dbErr := r.RelationRep.IsRelaitonWaiting(realCoachId, studentId)
+	if dbErr != nil || relation == nil {
+		banner := "db hatası"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
 	timeD := time.Now()
 	relation.Status = entities.StatusRejected
-	relation.StartedTime = zeroTime
+	relation.StartedTime = nil
 	relation.DeletedTime = &timeD
 	dbError := r.RelationRep.Update(relation)
 	if dbError != nil {
@@ -222,4 +324,101 @@ func (r *RelationS) GetMyCoach(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"Coach": coach})
+}
+
+// coachla öğrenci işlişkisi var mı bak
+// active mi ilişki ona bak eğer active se breakup a çevir
+func (r *RelationS) LeaveCoach(c *gin.Context) {
+	studentID, exists := c.Get("user_id")
+	if exists == false {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user_id not found"})
+		return
+	}
+	studentId, ok := studentID.(uint)
+	if ok == false {
+		c.JSON(http.StatusNotFound, gin.H{"error": "student_id couldnot converted"})
+		return
+	}
+
+	body := map[string]interface{}{}
+	bindErr := c.ShouldBindJSON(&body)
+	if bindErr != nil {
+		banner := "couldnotget the infos"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	coachID := body["coach_id"].(float64)
+	coachId := uint(coachID)
+
+	relStatus := r.RelationRep.IsRelaitonActive(coachId, studentId)
+	if relStatus != true {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "koçla bağlantın yok "})
+		return
+	}
+
+	relation, errR := r.RelationRep.FindCoachRelationFromStudentId(studentId)
+	if errR != nil {
+		banner := "bağlantı bulunamadı"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	relation.Status = entities.StatusBreakUp
+	now := time.Now()
+	relation.EndedTime = &now
+	updateErr := r.RelationRep.Update(relation)
+	if updateErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": updateErr.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+// bunu addRating e ekleyebiliriz her koçu
+func (r *RelationS) GetPastCoach(c *gin.Context) {
+	studentID, getStatus := c.Get("user_id")
+	if getStatus == false {
+		banner := "couldnot converted"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+	}
+	studentId, ok := studentID.(uint)
+	if ok == false {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+	}
+	coach, dbError := r.StudentRep.GetLastCoach(studentId)
+	if dbError != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	relStatus := r.RelationRep.IsRelaitonBreakedUP(coach.UserID, studentId)
+	if relStatus != true {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+		return
+	}
 }

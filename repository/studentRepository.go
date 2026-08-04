@@ -34,10 +34,10 @@ func (r *StudentRepository) GetById(id uint) (entities.Student, error) {
 	return student, dbRet.Error
 }
 
-func (r *StudentRepository) GetCoachsStudents(id int) ([]entities.Coach, error) {
+func (r *StudentRepository) GetCoachsStudents(id uint) ([]entities.Coach, error) {
 
 	coaches := []entities.Coach{}
-	dbReturn := r.db.Model(&entities.Coach{}).Where("UserID=?", id).Find(&coaches)
+	dbReturn := r.db.Model(&entities.Coach{}).Where("user_id=?", id).Find(&coaches)
 	return coaches, dbReturn.Error
 
 }
@@ -46,4 +46,9 @@ func (r *StudentRepository) GetByUserID(userID uint) (entities.User, error) {
 	user := entities.User{}
 	dbReturn := r.db.First(&user, userID)
 	return user, dbReturn.Error
+}
+func (r *StudentRepository) GetLastCoach(studentId uint) (entities.Coach, error) {
+	coach := entities.Coach{}
+	dbRet := r.db.Model(&entities.Coach{}).Where("student_id = ?", studentId).Order("date DESC").First(&coach)
+	return coach, dbRet.Error
 }

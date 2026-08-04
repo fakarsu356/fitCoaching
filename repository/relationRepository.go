@@ -37,12 +37,6 @@ func (r *RelationRepository) GetById(id int) (entities.Relation, error) {
 	return relation, dbReturn.Error
 
 }
-func (r *RelationRepository) CoachsStudents(coachID uint) (int64, error) { // koçun öğrencilerini bulmak için
-	var relation []entities.Relation
-	dbRet := r.db.Model(&entities.Relation{}).Where("coach_id=? AND status=?", coachID, entities.StatusActive).Find(&relation)
-	return int64(len(relation)), dbRet.Error
-}
-
 func (r *RelationRepository) FindExpiredRequests() ([]entities.Relation, error) {
 
 	var expiredRequests []entities.Relation
@@ -59,15 +53,9 @@ func (r *RelationRepository) FindStudentRequest(studentID uint) (*entities.Relat
 
 	return &pendingStudent, dbRet.Error
 }
-func (r *RelationRepository) FindCoachRelationFromStudentId(studentID uint) (*entities.Relation, error) { // öğrencinin güncel koçunu bulma
+func (r *RelationRepository) FindCoachRelationFromStudentId(studentID uint) (*entities.Relation, error) { // öğrencinin güncel relationını  bulma
 	var active entities.Relation
 	dbRet := r.db.Model(&entities.Relation{}).Where("student_id=? AND status = ?", studentID, entities.StatusActive).First(&active)
-
-	return &active, dbRet.Error
-}
-func (r *RelationRepository) FindCoachRelationFromCoachId(coachID uint) (*entities.Relation, error) { // koçun id si ile o relation ı getiriyor
-	var active entities.Relation
-	dbRet := r.db.Model(&entities.Relation{}).Where("coach_id=? AND status = ?", coachID, entities.StatusActive).First(&active)
 
 	return &active, dbRet.Error
 }
@@ -92,6 +80,7 @@ func (r *RelationRepository) FindPendingRequests(coachId uint) ([]entities.Relat
 	return pendingRequests, dbRet.Error
 }
 
+// default time.Time nesnesi ne
 func (r *RelationRepository) DoesCoachHaveStudent(coachId uint, studentId uint) bool {
 	var relation entities.Relation
 	dbRet := r.db.Model(entities.Relation{}).Where("coach_id=?", coachId).Find(&relation)
@@ -101,12 +90,69 @@ func (r *RelationRepository) DoesCoachHaveStudent(coachId uint, studentId uint) 
 	if relation.StudentID != studentId {
 		return false
 	}
-	var t time.Time
 
-	if !relation.StartedTime.Before(time.Now()) || relation.EndedTime != t {
+	if !relation.StartedTime.Before(time.Now()) {
 		return false
 
 	}
 	return true
 
+}
+func (r *RelationRepository) IsRelaitonActive(coachId uint, studentId uint) bool {
+	var relation entities.Relation
+	dbRet := r.db.Model(entities.Relation{}).Where("coach_id=? AND student_id=? AND status = ?", coachId, studentId, entities.StatusActive).Find(&relation)
+	if dbRet.Error != nil {
+		return false
+	}
+	if relation.StudentID != studentId {
+		return false
+	}
+
+	if !relation.StartedTime.Before(time.Now()) {
+		return false
+
+	}
+	return true
+
+}
+func (r *RelationRepository) IsRelaitonBreakedUP(coachId uint, studentId uint) bool {
+	var relation entities.Relation
+	dbRet := r.db.Model(entities.Relation{}).Where("coach_id=? AND status = ?", coachId, entities.StatusBreakUp).Find(&relation)
+	if dbRet.Error != nil {
+		return false
+	}
+	if relation.StudentID != studentId {
+		return false
+	}
+
+	if !relation.StartedTime.Before(time.Now()) {
+		return false
+
+	}
+	return true
+}
+
+func (r *RelationRepository) IsRelaitonWaiting(coachId uint, studentId uint) (*entities.Relation, error) {
+	var relation entities.Relation
+
+	dbRet := r.db.Model(entities.Relation{}).Where("coach_id=? AND status = ? ", coachId, entities.StatusWaiting).First(&relation)
+
+	return &relation, dbRet.Error
+}
+func (r *RelationRepository) GetCoachsStudents(coachId uint) int {
+	var number int64
+	r.db.Model(entities.Relation{}).Where("coach_id = ? AND status = ?", coachId, entities.StatusActive).Count(&number)
+	return int(number)
+}
+func (r *RelationRepository) GetCoachFromStudenId(studentId uint) (entities.Coach, error) {
+	var relation entities.Relation
+	var coach entities.Coach
+
+	dbRet := r.db.Model(entities.Relation{}).Where("student_id = ?", studentId).Find(&relation)
+	if dbRet.Error != nil {
+		return coach, dbRet.Error
+	}
+	dbRet = r.db.Model(entities.Coach{}).Where("coach_id=?", relation.CoachID).Find(&coach)
+
+	return coach, dbRet.Error
 }
