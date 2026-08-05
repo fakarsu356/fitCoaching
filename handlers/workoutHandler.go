@@ -4,7 +4,6 @@ import (
 	"fitcoaching/models/entities"
 	"fitcoaching/repository"
 	"fitcoaching/utils"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -12,11 +11,14 @@ import (
 )
 
 type AddWorkoutInput struct {
-	StudentID uint           `json:"student_id"`
-	Date      time.Time      `json:"date"`
-	Note      string         `json:"note"`
-	Generator bool           // eğer true ise öğrenci
-	Sets      []entities.Set `json:"sets"`
+	WorkoutID    uint                   `json:"workout_id,omitempty"`
+	StudentID    uint                   `json:"student_id"`
+	Date         time.Time              `json:"date"`
+	Note         string                 `json:"note"`
+	Generator    bool                   `json:"generator,omitempty"`      // eğer true ise öğrenci
+	SourcePlanID *uint                  `json:"source_plan_id,omitempty"` // öğrencinin hangi planı yapacağını belirler  koç için nil
+	Sets         []entities.Set         `json:"sets"`
+	Status       entities.WorkoutStatus `json:"status"`
 }
 type WorkoutS struct {
 	UserRep     repository.UserRepository
@@ -38,14 +40,14 @@ func WokrputCons(userRep repository.UserRepository, studentRep repository.Studen
 		SetRepo:     setRep,
 	}
 	return workout
+	// koç antrenmanlrı dizsin sonra ama düzenleyebilsin o antrenmanları çocuğada her ilk oluşturulan antrenman gösterilsin
+	//koç eski antrenmanları kopyalayıp yeniden atayabilsin
+	// koç ekranda atadığı antrenmanları götcek çocuuğn yaptıklarını da görebilcek hala bekleyenleri de görebilcek
 
 }
-
-// add wokrput kısmında hoca set ve hareketleri gircek hareket sayılarını çocuk gircek.
-func (w *WorkoutS) AddWorkout(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-
-	if exists == false {
+func (w *WorkoutS) AddWorkoutCoach(c *gin.Context) {
+	coachID, statusUser := c.Get("user_id")
+	if statusUser != true {
 		banner := "hata"
 		utils.Response(c, utils.ResponseS{
 			Status: false,
@@ -53,16 +55,6 @@ func (w *WorkoutS) AddWorkout(c *gin.Context) {
 		})
 		return
 	}
-	// yeni struct oluşturuldu alınan değerleri  o structtan bağla notu setleri fln düzgünce bağla
-	Role, statusRole := c.Get("role")
-	if statusRole != true {
-		banner := "hata"
-		utils.Response(c, utils.ResponseS{
-			Status: false,
-			Banner: &banner,
-		})
-	}
-	role := Role.(entities.Role)
 
 	var allData AddWorkoutInput
 	err := c.ShouldBindJSON(&allData)
@@ -74,111 +66,56 @@ func (w *WorkoutS) AddWorkout(c *gin.Context) {
 		})
 		return
 	}
-	fmt.Println(allData)
 
-	if role == "Student" {
-		studentId, userOk := userID.(uint)
-		if !userOk {
-			banner := "hata"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
-		}
-		_, errStd := w.StudentRep.GetById(studentId)
-		if errStd != nil {
-			banner := "böyle bir öğrenci kayıtlı değil "
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
-			return
-		}
-
-		coach, dbError := w.RelationRep.GetCoachFromStudenId(studentId)
-		if dbError != nil {
-			banner := "kayıt bulunamadı"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
-		}
-
-		workout := entities.Workout{
-			CoachID:   coach.UserID,
-			StudentID: studentId,
-			Date:      time.Now(),
-			Notes:     allData.Note,
-			Generator: true, // it is student if generator is true
-		}
-		realWorkout, createErr := w.WorkoutRep.Create(&workout)
-		if createErr != nil {
-			banner := "hata"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
-		}
-		for _, set := range allData.Sets {
-			set.WorkoutID = realWorkout.ID
-
-			setErr := w.SetRepo.Create(&set)
-			if setErr != nil {
-				banner := "hata"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
-				return
-			}
-		}
-
+	coachId, userOk := coachID.(uint)
+	if !userOk {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
 	}
-	if role == "Coach" {
-		coachId, userOk := userID.(uint)
-		if !userOk {
-			banner := "hata"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
-		}
-		studentId := allData.StudentID
-		_, errStd := w.StudentRep.GetById(studentId)
-		if errStd != nil {
-			banner := "böyle bir öğrenci kayıtlı değil "
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
-			return
-		}
 
-		status := w.RelationRep.DoesCoachHaveStudent(coachId, studentId)
-		if status != true {
-			banner := "bu koçun böyle öğrencisi yok"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
-			return
-		}
-		workout := entities.Workout{
-			CoachID:   coachId,
-			StudentID: studentId,
-			Date:      time.Now(),
-			Notes:     allData.Note,
-			Generator: false, // eğer false ise koç
-		}
-		realWorkout, createErr := w.WorkoutRep.Create(&workout)
-		if createErr != nil {
-			banner := "hata"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
-		}
+	studentId := allData.StudentID
+	_, errStd := w.StudentRep.GetById(studentId)
+	if errStd != nil {
+		banner := "böyle bir öğrenci kayıtlı değil "
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 
+	status := w.RelationRep.DoesCoachHaveStudent(coachId, studentId)
+	if status != true {
+		banner := "bu koçun böyle öğrencisi yok"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	workout := entities.Workout{
+		CoachID:   coachId,
+		StudentID: studentId,
+		Date:      time.Now(),
+		Notes:     allData.Note,
+		Status:    entities.WorkoutWaiting,
+		Generator: false, // eğer false ise koç
+	}
+	realWorkout, createErr := w.WorkoutRep.Create(&workout)
+	if createErr != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	if allData.Sets != nil {
 		for _, set := range allData.Sets {
 			set.WorkoutID = realWorkout.ID
 
@@ -191,11 +128,402 @@ func (w *WorkoutS) AddWorkout(c *gin.Context) {
 				})
 				return
 			}
+		}
+	}
+	banner := "success"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:   realWorkout,
+	})
+}
+
+// add wokrout kısmında hoca set ve hareketleri gircek hareket sayılarını çocuk gircek.
+func (w *WorkoutS) GetTodayPlan(c *gin.Context) {
+
+	studentID, exists := c.Get("user_id")
+	if exists == false {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	studentId, ok := studentID.(uint)
+	if ok == false {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	_, errStd := w.StudentRep.GetById(studentId)
+	if errStd != nil {
+		banner := "böyle bir öğrenci kayıtlı değil "
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	workout, dbErr := w.WorkoutRep.GetStudentsWorkkout(studentId)
+	if dbErr != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	sets, setsErr := w.SetRepo.FindByWorkoutID(workout.ID)
+	if setsErr != nil {
+		banner := "setler bulunamadı"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	var totalWorkout AddWorkoutInput
+
+	totalWorkout.StudentID = workout.StudentID
+	totalWorkout.Note = workout.Notes
+	totalWorkout.Status = entities.WorkoutDone
+	totalWorkout.Sets = sets
+
+	banner := "success"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:   totalWorkout,
+	})
+	return
+}
+
+func (w *WorkoutS) SaveStudentsWorkout(c *gin.Context) {
+
+	var totalWorkout AddWorkoutInput
+	bindErr := c.ShouldBind(&totalWorkout)
+	if bindErr != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	studentID, status := c.Get("user_id")
+	studentId, ok := studentID.(uint)
+	if ok == false || status == false {
+		banner := "internal hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	if totalWorkout.StudentID != studentId {
+		banner := "kendine istek at"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	if totalWorkout.SourcePlanID == nil {
+		banner := "SourcePlanID dolu olmalıdır"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	coach, coachErr := w.RelationRep.GetCoachFromStudenId(studentId)
+	if coachErr != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	workout := entities.Workout{
+		CoachID:      coach.UserID,
+		StudentID:    studentId,
+		Date:         time.Now(),
+		Notes:        totalWorkout.Note,
+		Generator:    true,
+		SourcePlanID: totalWorkout.SourcePlanID,
+		Status:       entities.WorkoutDone,
+	}
+
+	createdWorkout, createErr := w.WorkoutRep.Create(&workout)
+	if createErr != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+		return
+	}
+
+	for _, set := range totalWorkout.Sets {
+		set.WorkoutID = createdWorkout.ID
+
+		setErr := w.SetRepo.Create(&set)
+
+		if setErr != nil {
+			banner := "setlerin bir kısmı oluşturulamdı"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
+			return
+		}
+	}
+
+	workoutId := *totalWorkout.SourcePlanID
+
+	coachWorkout, _ := w.WorkoutRep.GetById(workoutId)
+
+	coachWorkout.Status = entities.WorkoutDone
+
+	updateErr := w.WorkoutRep.Update(&coachWorkout)
+	if updateErr != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	banner := "success"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:   createdWorkout,
+	})
+}
+func (w *WorkoutS) CopyWorkout(c *gin.Context) {
+	coachID, status := c.Get("user_id")
+	if status == false {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	coachId, status := coachID.(uint)
+	if status == false {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	body := map[string]interface{}{}
+	err := c.Bind(&body)
+	if err != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	workoutID := body["workout_id"].(float64)
+	workoutId := uint(workoutID)
+
+	studentID := body["student_id"].(float64)
+	studentId := uint(studentID)
+
+	workoutCopied, wErr := w.WorkoutRep.GetById(workoutId)
+	if wErr != nil {
+		banner := "kayıt bulunamadı"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	if workoutCopied.CoachID != coachId {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	workoutCopied.Status = entities.WorkoutWaiting
+
+	workoutCopied.StudentID = studentId
+
+	workoutCopied.Date = time.Now()
+
+	workoutCreated, createErr := w.WorkoutRep.Create(&workoutCopied)
+	if createErr != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	sets, setsErr := w.SetRepo.FindByWorkoutID(workoutId)
+	if setsErr != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+	}
+
+	for _, set := range sets {
+		set.WorkoutID = workoutCreated.ID
+		set.Date = time.Now()
+		setErr := w.SetRepo.Create(&set)
+		if setErr != nil {
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
+			return
 		}
 	}
 }
+func (w *WorkoutS) UpdateWorkout(c *gin.Context) {
+	coachID, status := c.Get("user_id")
+	coachId, ok := coachID.(uint)
+	if ok == false || status == false {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 
-// koçun bu atadığı antrenmanı öğrenciye nasıl çekecez öğrenci bu koçun antrenmanını naısl görcek
+	var body AddWorkoutInput
+	bindErr := c.ShouldBind(&body)
+	if bindErr != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	workout := entities.Workout{
+		ID:        body.WorkoutID,
+		CoachID:   coachId,
+		StudentID: body.StudentID,
+		Date:      time.Now(),
+		Notes:     body.Note,
+		Generator: false,
+		Status:    entities.WorkoutWaiting,
+	}
+	updateErr := w.WorkoutRep.Update(&workout)
+	if updateErr != nil {
+		banner := "kayıt oluşturulamadı"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	sets, setsErr := w.SetRepo.FindByWorkoutID(body.WorkoutID)
+	if setsErr != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+		return
+	}
+	for _, set := range sets {
+		w.SetRepo.Delete(set)
+	}
+
+	for _, set := range body.Sets {
+		set.WorkoutID = body.WorkoutID
+		createrr := w.SetRepo.Create(&set)
+		if createrr != nil {
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: nil,
+			})
+			return
+		}
+	}
+	banner := "workout updated"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+	})
+
+}
+func (w *WorkoutS) GetCoachWorkouts(c *gin.Context) {
+	coachID, status := c.Get("user_id")
+	coachId, ok := coachID.(uint)
+	if ok == false || status == false {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+	}
+
+	workouts, dbErr := w.WorkoutRep.GetWorkoutsByCoach(coachId)
+	if dbErr != nil {
+		banner := "records are not found"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+	}
+	var alldata []AddWorkoutInput
+	var datum AddWorkoutInput
+	for _, workout := range workouts {
+		sets, setsErr := w.SetRepo.FindByWorkoutID(workout.ID)
+		if setsErr != nil {
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: nil,
+			})
+		}
+		datum.WorkoutID = workout.ID
+		datum.Date = workout.Date
+		datum.Sets = sets
+		datum.Generator = false
+		datum.Status = entities.WorkoutWaiting
+
+		alldata = append(alldata, datum)
+	}
+	banner := "success"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:   alldata,
+	})
+}
 
 func (w *WorkoutS) GetWorkoutsByStudent(c *gin.Context) {
 
@@ -300,7 +628,7 @@ func (w *WorkoutS) GetWorkoutsByStudent(c *gin.Context) {
 
 	if Role == "coach" {
 
-		studentId, statusIdConv := data["student_id"].(uint)
+		studentID, statusIdConv := data["student_id"].(float64)
 		if statusIdConv == false {
 			utils.Response(c, utils.ResponseS{
 				Status: false,
@@ -308,9 +636,10 @@ func (w *WorkoutS) GetWorkoutsByStudent(c *gin.Context) {
 			})
 			return
 		}
+		studentId := uint(studentID)
 
-		status := w.RelationRep.DoesCoachHaveStudent(userID, studentId)
-		if status != true {
+		statusDb := w.RelationRep.DoesCoachHaveStudent(userID, studentId)
+		if statusDb != true {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "kendi öğrencine istek at"})
 			return
 		}
@@ -347,7 +676,6 @@ func (w *WorkoutS) GetWorkoutsByStudent(c *gin.Context) {
 	}
 }
 
-// bunu niye yazmışım
 func (w *WorkoutS) GetWorkoutDetail(c *gin.Context) {
 	userId, status := c.Get("user_id")
 	if status == false {

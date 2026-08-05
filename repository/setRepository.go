@@ -24,8 +24,8 @@ func (r *SetRepository) Update(set entities.Set) error {
 	return r.db.Model(&set).Updates(&set).Error
 }
 
-func (r *SetRepository) Delete(id int) error {
-	return r.db.Delete(&entities.Set{}, id).Error
+func (r *SetRepository) Delete(set entities.Set) error {
+	return r.db.Delete(&set).Error
 
 }
 
