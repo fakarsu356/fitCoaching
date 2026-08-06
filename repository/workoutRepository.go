@@ -48,9 +48,9 @@ func (r *WorkoutRepository) FindByCoachAndStudent(coachID, studentID uint) ([]en
 	return workouts, dbReturn.Error
 } // koç izolasyonu kontrolüyle birlikte, belirli bir öğrencinin antrenmanlarını getirme
 
-func (r *WorkoutRepository) GetWorkoutsByDate(studentID uint, startData time.Time, endDate time.Time) ([]entities.Workout, error) {
+func (r *WorkoutRepository) GetWorkoutsByDate(studentID uint, startDate time.Time, endDate time.Time) ([]entities.Workout, error) {
 	var workouts []entities.Workout
-	dbRet := r.db.Where("student_id = ? AND start_date <= ? AND end_date >= ?", studentID, startData, endDate).Find(&workouts)
+	dbRet := r.db.Where("student_id = ? AND date <= ? AND date >= ?", studentID, endDate, startDate).Find(&workouts)
 	return workouts, dbRet.Error
 }
 func (r *WorkoutRepository) GetWorkoutsByCoach(coachId uint) ([]entities.Workout, error) {

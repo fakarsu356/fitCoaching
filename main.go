@@ -67,7 +67,6 @@ func main() {
 
 			}
 		}
-		fmt.Println(relations[0].Status)
 	})
 	c.Start()
 
@@ -88,8 +87,13 @@ func main() {
 	router.POST("/relations/myStudents", utils.RequireRole("Coach"), relationHandler.GetMyStudents)
 	router.POST("/relations/leave", utils.RequireRole("Student"), relationHandler.LeaveCoach)
 
-	router.POST("/workout/workoutAdd", utils.RequireRole("Coach"), workoutHandler.AddWorkout)
-	router.POST("/workout/workouts", utils.AuthMiddleware(), workoutHandler.GetWorkoutsByStudent)
+	router.POST("/workout/workoutAdd", utils.RequireRole("Coach"), workoutHandler.AddWorkoutCoach)
+	router.POST("/workout/getworkout", utils.RequireRole("Student"), workoutHandler.GetTodayPlan)
+	router.POST("/workout/saveWorkout", utils.RequireRole("Student"), workoutHandler.SaveStudentsWorkout)
+	router.POST("/workout/workoutcopy", utils.RequireRole("Coach"), workoutHandler.CopyWorkout)
+	router.POST("/workout/workoutupdate", utils.RequireRole("Coach"), workoutHandler.UpdateWorkout)
+	router.POST("/workout/workoutlist", utils.RequireRole("Coach"), workoutHandler.GetCoachWorkouts)
+	router.POST("/workout/workoutsbytime", utils.AuthMiddleware(), workoutHandler.GetWorkoutsByDate)
 	router.POST("/workout/workout", utils.AuthMiddleware(), workoutHandler.GetWorkoutDetail)
 
 	router.POST("/meal/addMeal", utils.RequireRole("Student"), mealHandler.AddMeal)
@@ -109,3 +113,5 @@ func main() {
 
 	router.Run(":8080")
 }
+
+// şuan access tokenın süresi 1 saat onu değiştir testler bitince

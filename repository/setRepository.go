@@ -39,8 +39,7 @@ func (r *SetRepository) GetById(id int) (entities.Set, error) {
 func (r *SetRepository) FindByWorkoutID(workoutID uint) ([]entities.Set, error) {
 	var sets []entities.Set
 
-	dbRet := r.db.Where("workout_id=?", workoutID).Find(&sets)
-
+	dbRet := r.db.Model(entities.Set{}).Where("workout_id=?", workoutID).Find(&sets)
 	return sets, dbRet.Error
 
 }

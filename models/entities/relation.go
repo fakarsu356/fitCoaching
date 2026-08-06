@@ -5,7 +5,9 @@ import "time"
 type Relation struct {
 	ID            uint
 	StudentID     uint
+	Student       User `gorm:"foreign_key:StudentID"`
 	CoachID       uint
+	Coach         User          `gorm:"foreign_key:CoachID"`
 	Status        RequestStatus `gorm:"size:20;default:waiting"`
 	RequestedTime time.Time
 	DeletedTime   *time.Time
