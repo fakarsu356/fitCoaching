@@ -3,16 +3,16 @@ package entities
 import "time"
 
 type Workout struct {
-	ID           uint `gorm:"primary_key"` //default
-	CoachID      uint `json:"coach_id"`
-	Coach        User `gorm:"foreignKey:CoachID"`
-	StudentID    uint `json:"student_id"`
-	Student      User `gorm:"foreignKey:StudentID"`
-	Date         time.Time
-	Notes        string        `gorm:"size:200" json:"notes"`
-	Generator    bool          //eğer true ise öğrenci
-	SourcePlanID *uint         `json:"source_plan_id"` //koçun gireceği antrenman verisinde burası nil olur
-	Status       WorkoutStatus `gorm:"size:10;default:waiting"`
+	ID           uint          `gorm:"primaryKey;auto_increment"`
+	CoachID      uint          `gorm:"not null;index"`
+	Coach        User          `gorm:"foreignKey:CoachID"`
+	StudentID    uint          `gorm:"not null;type:int;index"`
+	Student      User          `gorm:"foreignKey:StudentID"`
+	Date         time.Time     `gorm:"type:datetime;not null"`
+	Notes        string        `gorm:"size:200;type:text"`
+	Generator    bool          `gorm:"not null;default:false"` //eğer true ise öğrenci
+	SourcePlanID *uint         `gorm:"column:source_plan_id"`  //koçun gireceği antrenman verisinde burası nil olur
+	Status       WorkoutStatus `gorm:"size:10;default:waiting;check:status IN ('waiting','done','rejected')"`
 }
 type WorkoutStatus string
 

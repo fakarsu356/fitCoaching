@@ -3,12 +3,12 @@ package entities
 import "time"
 
 type Set struct {
-	ID           uint
-	WorkoutID    uint    `json:"workout_id"`
-	workout      Workout `gorm:"foreign_key:WorkoutID"`
-	MovementName string  `gorm:"size:32" json:"movement_name"`
-	SetNumber    uint    `json:"set_number"`
-	Reps         uint    `json:"reps"`
-	Weight       float64 `json:"weight"`
-	Date         time.Time
+	ID           uint      `gorm:"primaryKey;not null"`
+	WorkoutID    uint      `gorm:"not null"`
+	Workout      Workout   `gorm:"foreignKey:WorkoutID"`
+	MovementName string    `gorm:"size:32"`
+	SetNumber    uint      `gorm:"not null"`
+	Reps         uint      `gorm:"check:reps >= 0 AND reps <= 50;type:int"`
+	Weight       float64   `gorm:"not null;check:weight >= 0 AND weight <= 1000"`
+	Date         time.Time `gorm:"type:datetime"`
 }

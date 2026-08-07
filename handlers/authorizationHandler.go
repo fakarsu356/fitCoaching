@@ -47,7 +47,7 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 	bodyFatPercentage := data["bodyFatPercentage"].(float64)
 	bodyWeight := data["bodyWeight"].(float64)
 	bodyHeight := data["bodyHeight"].(float64)
-	gender := entities.Gender(data["gender"].(string))
+	gender := entities.Genders(data["gender"].(string))
 
 	if username == "" || password == "" || passwordH == "" || email == "" || age == 0 || bodyFatPercentage == 0 || bodyWeight == 0 || bodyHeight == 0 || gender == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "all places are required"})
@@ -108,6 +108,7 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 		Email:        email,
 		Role:         entities.StudentR,
 		CreatedAt:    time.Now(),
+		Gender:       entities.Genders(gender),
 	}
 	realUser, errU := h.UserRep.Create(&user)
 	if errU != nil {
@@ -120,7 +121,6 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 		Age:           uint(age),
 		BodyWeight:    bodyWeight,
 		FatPercentage: bodyFatPercentage,
-		Gender:        entities.Gender(gender),
 		BodyHeight:    bodyHeight,
 	}
 	errS := h.StudentRep.Create(&student)
@@ -194,6 +194,7 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 		Email:           email,
 		Role:            entities.CoachR,
 		CreatedAt:       time.Now(),
+		Gender:          entities.Genders(gender),
 	}
 	realUser, errR := h.UserRep.Create(&user)
 
@@ -207,8 +208,7 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 		User:        *realUser,
 		Speciality:  speciality,
 		MaxStudents: maxStudent,
-		Capacity:    entities.Free,
-		Gender:      entities.Gender(gender),
+		Status:      entities.Free,
 	}
 	errCoach := h.CoachRep.Create(&coach)
 	if errCoach != nil {

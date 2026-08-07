@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fitcoaching/models"
 	"fitcoaching/models/entities"
 	"fitcoaching/repository"
 	"fitcoaching/utils"
@@ -193,7 +194,6 @@ func (w *WorkoutS) GetTodayPlan(c *gin.Context) {
 		})
 		return
 	}
-
 	if sets == nil {
 		banner := "banner record not found"
 		utils.Response(c, utils.ResponseS{
@@ -202,17 +202,44 @@ func (w *WorkoutS) GetTodayPlan(c *gin.Context) {
 		})
 	}
 
-	var totalWorkout AddWorkoutInput
+	var setsM []models.SetM
 
-	totalWorkout.StudentID = workout.StudentID
-	totalWorkout.Note = workout.Notes
-	totalWorkout.Status = entities.WorkoutDone
-	totalWorkout.Sets = sets
+	for _, set := range sets {
+		setM := models.SetM{
+			ID:           set.ID,
+			WorkoutID:    workout.ID,
+			MovementName: set.MovementName,
+			Date:         set.Date,
+			SetNumber:    set.SetNumber,
+			Reps:         set.Reps,
+			Weight:       set.Weight,
+		}
+		setsM = append(setsM, setM)
+	}
+	//bunu en son sil
+	type WorkoutM struct {
+		ID           uint                   `json:"id"`
+		CoachID      uint                   `json:"coach_id"`
+		StudentID    uint                   `json:"student_id"`
+		Date         time.Time              `json:"date"`
+		Notes        string                 `json:"notes"`
+		Status       entities.WorkoutStatus `json:"status"`
+		Generator    bool                   `json:"generator"`
+		SourcePlanID *uint                  `json:"source_plan_id,omitempty"`
+		Sets         []models.SetM          `json:"sets"`
+	}
+
+	workoutM := WorkoutM{
+		ID:     workout.ID,
+		Notes:  workout.Notes,
+		Status: workout.Status,
+		Sets:   setsM,
+	}
 	banner := "success"
 	utils.Response(c, utils.ResponseS{
 		Status: true,
 		Banner: &banner,
-		Data:   totalWorkout,
+		Data:   workoutM,
 	})
 	return
 }
@@ -681,7 +708,7 @@ func (w *WorkoutS) GetWorkoutsByDate(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "no workouts found"})
 			return
 		}
-		
+
 		var realWorkouts []AddWorkoutInput
 		for _, workout := range workouts {
 			var realWorkout AddWorkoutInput

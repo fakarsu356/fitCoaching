@@ -3,8 +3,8 @@ package entities
 import "time"
 
 type Sleep struct {
-	ID         uint
-	StudentID uint 
-	BedTime   time.Time `gorm:"type:time"`
-	WakeTime  time.Time `gorm:"type:time"`
+	ID        uint      `gorm:"primaryKey;not null"`
+	StudentID uint      `gorm:"not null;index"`
+	BedTime   time.Time `gorm:"type:datetime;not null"`
+	WakeTime  time.Time `gorm:"type:datetime;not null"`
 }
