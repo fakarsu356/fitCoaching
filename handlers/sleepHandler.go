@@ -76,35 +76,63 @@ func (s *SleepS) AddSleep(c *gin.Context) {
 		WakeTime:  wakeTime,
 		BedTime:   bedTime,
 	}
+
 	createErr := s.SleepRep.Create(sleep)
 	if createErr != nil {
-		c.JSON(400, gin.H{"error": createErr.Error()})
+		banner:="internal error"
+		utils.Response(c,utils.ResponseS{
+		Status:false,
+		Banner:&banner,
+		})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"sleep": sleep})
+
+	banner:="success"
+	utils.Response(c,utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:   sleep,
+
+	})
 }
 func (s *SleepS) GetSleepByStudent(c *gin.Context) {
 	userID, statusId := c.Get("user_id")
 	if statusId == false {
-		c.JSON(400, gin.H{"error": "could not get user_id"})
+		banner:="could not get user_id"
+		utils.Response(c,utils.ResponseS{
+			Status:false,
+			Banner:&banner,
+		})
 		return
 	}
 
 	userId, ok := userID.(uint)
 	if ok == false {
-		c.JSON(400, gin.H{"error": "could not converted user_id"})
+		banner:="internal error"
+		utils.Response(c,utils.ResponseS{
+			Status:false,
+			Banner:&banner,
+		})
 		return
 	}
 
 	role, statusRole := c.Get("role")
 	if statusRole == false {
-		c.JSON(400, gin.H{"error": "could not get user_id"})
+		banner:="internal error"
+		utils.Response(c,utils.ResponseS{
+			Status:false,
+			Banner:&banner,
+		})
 		return
 	}
 
 	Role, converted := role.(entities.Role)
 	if converted == false {
-		c.JSON(400, gin.H{"error": "could not converted role"})
+		banner:="internal error"
+		utils.Response(c,utils.ResponseS{
+			Status:false,
+			Banner:&banner,
+		})
 		return
 	}
 
@@ -113,7 +141,7 @@ func (s *SleepS) GetSleepByStudent(c *gin.Context) {
 		data := map[string]int{}
 		bindError := c.ShouldBindJSON(&data)
 		if bindError != nil {
-			banner := "enter valid data "
+			banner := "enter valid data"
 			utils.Response(c, utils.ResponseS{
 				Status: false,
 				Banner: &banner,
@@ -140,7 +168,6 @@ func (s *SleepS) GetSleepByStudent(c *gin.Context) {
 				Status: false,
 				Banner: &banner,
 			})
-			c.JSON(400, gin.H{"error": dbError.Error()})
 			return
 		}
 
@@ -155,10 +182,18 @@ func (s *SleepS) GetSleepByStudent(c *gin.Context) {
 	if Role == "Student" {
 		sleep, dbError := s.SleepRep.FindByStudent(userId)
 		if dbError != nil {
-			c.JSON(400, gin.H{"error": dbError.Error()})
+			banner:="hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
 			return
 		}
 
-		c.JSON(200, gin.H{"sleep": sleep})
-	}
+	banner:="sleep is found"
+		utils.Response(c, utils.ResponseS{
+			Status: true,
+			Banner: &banner,
+			Data:   sleep,
+		})	}
 }

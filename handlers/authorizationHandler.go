@@ -6,8 +6,8 @@ import (
 	"fitcoaching/repository"
 	"fitcoaching/utils"
 	"io"
-	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -50,54 +50,103 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 	gender := entities.Genders(data["gender"].(string))
 
 	if username == "" || password == "" || passwordH == "" || email == "" || age == 0 || bodyFatPercentage == 0 || bodyWeight == 0 || bodyHeight == 0 || gender == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "all places are required"})
+		banner := "all places are required"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	// e mail i kontrol et
 	_, err1 := h.UserRep.Findemail(email)
 	if err1 == nil { // burayı sor
-		c.JSON(http.StatusBadRequest, " hata ")
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	errM := utils.ValidateEmail(email)
 	if errM != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "email is not valid"})
+		banner := "email is not valid"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	// 2 şifre eşleşiyomu kontrol et
 	if password != passwordH {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "şifreler eşleşmiyor "})
+		banner := "şifreler eşleşmiyor"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	// öğrenci ile ilgili kontroller
 	if age > 50 || age < 10 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "doğru değer gir "})
+		banner := "doğru değer gir"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	if bodyFatPercentage < 1.00 || bodyFatPercentage > 50.00 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "doğru değer gir "})
+		banner := "doğru değer gir"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	if bodyWeight > 200 || bodyWeight < 10 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "doğru değer gir "})
+		banner := "doğru değer gir"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	if bodyHeight > 250 || bodyHeight < 50 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "doğru değer gir "})
+		banner := "doğru değer gir"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	// şifre standartlara uygun mu kontrol et
 	if utils.ValidatePassword(password) != nil {
-		c.JSON(http.StatusBadRequest, utils.ValidatePassword(password).Error())
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	hashedBytes, hashErr := utils.PasswordHash(password)
 	if hashErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "hashlenemedi"}) // c.JSON(http.StatusBadRequest, gin.H{"error": "hashlenemedi"})  bu 2 sinin farkı ne
-
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	password = string(hashedBytes)
@@ -112,7 +161,12 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 	}
 	realUser, errU := h.UserRep.Create(&user)
 	if errU != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errU.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	student := entities.Student{
@@ -125,11 +179,21 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 	}
 	errS := h.StudentRep.Create(&student)
 	if errS != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errS.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "kayıt başarılı"})
+	banner := "successfully registered"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:   nil,
+	})
 }
 
 func (h *Authorization) KayitCoach(c *gin.Context) {
@@ -144,62 +208,100 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 
 	maxStudent, errConv := strconv.Atoi(maxStudentStr)
 	if errConv != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "string dönüştürülemedi "})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	if username == "" || password == "" || passwordConfirm == "" || email == "" || maxStudent == 0 || gender == "" || speciality == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "all places are required"})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
-	// 2 şifre eşleşiyomu kontrol et
 	if passwordConfirm != password {
-		c.JSON(http.StatusBadRequest, "şifreler eşleşmiyor")
+		banner := "şifreler eşleşmiyor"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
-	// şifre standartlara uygun mu kontrol et
 	if utils.ValidatePassword(password) != nil {
-		c.JSON(http.StatusBadRequest, utils.ValidatePassword(password).Error())
+		banner := "password is not valid"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	hashedBytes, hashErr := utils.PasswordHash(password)
 	if hashErr != nil {
-		c.JSON(http.StatusBadRequest, "hashlenemedi") // c.JSON(http.StatusBadRequest, gin.H{"error": "hashlenemedi"})  bu 2 sinin farkı ne
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
-	// e mail i kontrol et
 	errE := utils.ValidateEmail(email)
 	if errE != nil {
-		c.JSON(http.StatusBadRequest, " email is not valid")
+		banner := "email is not valid "
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 	_, err1 := h.UserRep.Findemail(email)
 	if err1 == nil {
-		c.JSON(http.StatusBadRequest, "smn already registered with this email")
+		banner := "smn already registered with this email"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
-
-	// max student kontrolü
-
 	if maxStudent < 0 || maxStudent > 20 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "geçersiz kontenjan değeri"})
+		banner := "geçersiz kontenjan değeri"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
 	user := entities.User{
-		Username:        username,
-		PasswordHash:    string(hashedBytes),
-		PasswordConfirm: "",
-		Email:           email,
-		Role:            entities.CoachR,
-		CreatedAt:       time.Now(),
-		Gender:          entities.Genders(gender),
+		Username:     username,
+		PasswordHash: string(hashedBytes),
+		Email:        email,
+		Role:         entities.CoachR,
+		CreatedAt:    time.Now(),
+		Gender:       entities.Genders(gender),
 	}
 	realUser, errR := h.UserRep.Create(&user)
 
 	if errR != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errR.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
@@ -212,66 +314,114 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 	}
 	errCoach := h.CoachRep.Create(&coach)
 	if errCoach != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errCoach.Error()})
-		return
-	}
-	// bu formun işlemleri
-	log.Printf("İşlemler devam ediyor")
-
-	form, errF := c.MultipartForm()
-	if errF != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "form okunamadı"})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
 		return
 	}
 
-	filesH := form.File["files"] // frontta ki map e atanan fileları getirir
-	for _, fileH := range filesH {
+	form, formErr := c.MultipartForm()
+	if formErr != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	files := form.File["files"]
+	for _, file := range files {
 
-		if fileH.Size > config.MaxFileSize {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "dosya büyük maksimum 5MB"})
+		if file.Size > config.MaxFileSize {
+			banner := "file size too big"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
 			return
 		}
-		file, errH := fileH.Open()
+
+		bytesf, errH := file.Open()
 		if errH != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "file cant open"})
-			return
-		}
-		defer file.Close()
-
-		//dökümanı okumak için gerekli şeyler
-		fileBytes, errD := io.ReadAll(file) //readall belgedeki tüm byteları okuyor ama read kullansak belli bir değere kadar byteokicak
-		if errD != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": errD.Error()})
+			banner := "file cant open"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
 			return
 		}
 
-		contentType := http.DetectContentType(fileBytes)
+		defer bytesf.Close()
+
+		bytes, errH := io.ReadAll(bytesf)
+		if errH != nil {
+			banner := "dosya okunamadı"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
+			return
+		}
+
+		contentType := http.DetectContentType(bytes)
 		if !config.AllowedTypes[contentType] {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "sadece PDF, JPEG veya PNG kabul edilir"})
+			banner := "PDF, JPEG,JPG veya PNG kabul edilir"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
 			return
 		}
-		str := strconv.FormatUint(uint64(realUser.ID), 10)
+		str := strconv.FormatUint(uint64(coach.UserID), 10)
 
 		fileDbName := str + "_" + time.Now().String()
 
-		document := entities.Document{
-			UploaderID: realUser.ID,
-			UniqueName: fileDbName,
-			DocName:    fileH.Filename,
-			Size:       float64(fileH.Size),
-			Date:       time.Now(),
-			DocType:    contentType,
-			File:       fileBytes,
+		keybytes := []byte(os.Getenv("TOP_SECRET"))
+
+		hashedDoc, hashError := utils.Encrypt(bytes, keybytes)
+		if hashError != nil {
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
+
+			return
 		}
 
-		errDoc := h.DocumentRep.Create(&document)
-		if errDoc != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "oluşturulamadı doküman"})
+		document := entities.Document{
+			UploaderID: coach.UserID,
+			UniqueName: fileDbName,
+			DocName:    file.Filename,
+			Size:       float64(file.Size),
+			Date:       time.Now(),
+			DocType:    contentType,
+			File:       hashedDoc,
+		}
+		docerr := h.DocumentRep.Create(&document)
+		if docerr != nil {
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
 			return
 		}
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Succesfully registered"})
+	banner := "Successfully registered"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:   nil,
+	})
+	return
 }
 
 func (h *Authorization) LogIn(c *gin.Context) {
@@ -294,24 +444,40 @@ func (h *Authorization) LogIn(c *gin.Context) {
 
 	errMail := utils.ValidateEmail(email)
 	if errMail != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "mail is not valid  "})
+		banner := "mail is not valid"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
 	errPassord := utils.ValidatePassword(password)
 	if errPassord != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password is not valid"})
+		banner := "password is not valid"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
 
 	dbUser, dbErr := h.UserRep.FindByEmail(email)
 	if dbErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "hata var ama mailden mi şifreden mi bilinmiyor "})
+		banner := "email bulunamadı"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
 
 	errB := bcrypt.CompareHashAndPassword([]byte(dbUser.PasswordHash), []byte(password))
 	if errB != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "hata var "})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
 
@@ -330,7 +496,15 @@ func (h *Authorization) LogIn(c *gin.Context) {
 		Token:     str,
 		ExpiresAt: time.Now().Add(30 * 24 * time.Hour), // 30 gün
 	}
-	h.TokenRep.Create(&refreshToken)
+	refErr := h.TokenRep.Create(&refreshToken)
+	if refErr != nil {
+		banner := "internal err"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 
 	accesstoken, AtokenError := utils.GenerateAccessToken(dbUser.ID, dbUser.Role)
 	if AtokenError != nil {
@@ -341,8 +515,11 @@ func (h *Authorization) LogIn(c *gin.Context) {
 		})
 		return
 	}
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Data:   gin.H{"message": "tokens are  created", "accesstoken": accesstoken, "refreshtoken": refreshToken.Token, "role": dbUser.Role},
+	})
 
-	c.JSON(http.StatusOK, gin.H{"message": "tokens are  created", "accesstoken": accesstoken, "refreshtoken": refreshToken.Token, "role": dbUser.Role})
 }
 func (h *Authorization) RefreshAccessToken(c *gin.Context) {
 	body := map[string]interface{}{}

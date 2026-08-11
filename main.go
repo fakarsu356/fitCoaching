@@ -7,6 +7,7 @@ import (
 	"fitcoaching/repository"
 	"fitcoaching/utils"
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
@@ -14,6 +15,14 @@ import (
 
 func main() {
 
+	loc, err := time.LoadLocation("Europe/Istanbul")
+	if err != nil {
+		fmt.Println("Saat dilimi yüklenemedi, manuel ayarlanıyor...")
+		// Eğer Windows kullanıyorsan ve LoadLocation hata verirse yedeği budur:
+		loc = time.FixedZone("UTC+3", 3*60*60)
+	}
+	time.Local = loc
+	fmt.Println(time.Now())
 	db := config.ConnectDatabase()
 	db.AutoMigrate(
 		&entities.User{},
@@ -86,6 +95,8 @@ func main() {
 	router.POST("/relations/reject", utils.RequireRole("Coach"), relationHandler.RejectRequest)
 	router.POST("/relations/myStudents", utils.RequireRole("Coach"), relationHandler.GetMyStudents)
 	router.POST("/relations/leave", utils.RequireRole("Student"), relationHandler.LeaveCoach)
+	router.POST("/relations/pastCoaches", utils.RequireRole("Student"), relationHandler.GetPastCoach)
+	router.POST("/relations/waitingRequests", utils.RequireRole("Student"), relationHandler.GetPendingRequests)
 
 	router.POST("/workout/workoutAdd", utils.RequireRole("Coach"), workoutHandler.AddWorkoutCoach)
 	router.POST("/workout/getworkout", utils.RequireRole("Student"), workoutHandler.GetTodayPlan)

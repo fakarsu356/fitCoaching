@@ -11,4 +11,5 @@ type Meal struct {
 	Protein     float64   `gorm:"not null;type:decimal(10,2)"`
 	Date        time.Time `gorm:"type:datetime;not null"`
 	Oil         float64   `gorm:"not null;type:decimal(10,2)"`
+
 }

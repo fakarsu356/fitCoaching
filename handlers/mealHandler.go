@@ -19,6 +19,8 @@ type MealS struct {
 	MealRep     repository.MealRepository
 }
 
+// burayada resim için bir alan
+
 func MealCons(userRep repository.UserRepository, studentRep repository.StudentRepository,
 	coachRep repository.CoachRepository, relationRep repository.RelationRepository, mealRep repository.MealRepository) *MealS {
 	sleep := &MealS{

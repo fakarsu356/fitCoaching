@@ -2,6 +2,7 @@ package entities
 
 import "time"
 
+// type gibi bişey eklenip bu dosya yemek mi yoksa tahlil mi cv mi gibi bir şey yapıp ona göre db den çekebiliriz sor
 type Document struct {
 	ID         uint      `gorm:"primaryKey;autoIncrement"`
 	UploaderID uint      `gorm:"not null;index"`

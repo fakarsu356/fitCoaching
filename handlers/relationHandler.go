@@ -34,11 +34,6 @@ func (r *RelationS) GetCoaches(c *gin.Context) {
 
 	coaches, err := r.CoachRep.GetAllFrees()
 	filteredCoaches := make([]entities.Coach, 0)
-	for _, coach := range coaches {
-		if coach.MaxStudents > r.RelationRep.GetCoachsStudents(coach.UserID) {
-			filteredCoaches = append(filteredCoaches, coach)
-		}
-	}
 	if err != nil {
 		banner := "could not get the coaches"
 		utils.Response(c, utils.ResponseS{
@@ -47,7 +42,17 @@ func (r *RelationS) GetCoaches(c *gin.Context) {
 		})
 		return
 	}
-	c.JSON(http.StatusOK, filteredCoaches)
+	for _, coach := range coaches {
+		if coach.MaxStudents > r.RelationRep.GetCoachsStudents(coach.UserID) {
+			filteredCoaches = append(filteredCoaches, coach)
+		}
+	}
+	banner := "success"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:   filteredCoaches,
+	})
 
 	// enes abi bunda bişey demişti hepsini döndürme diye bunu sor nasıl olacağını
 }
@@ -284,7 +289,7 @@ func (r *RelationS) GetMyStudents(c *gin.Context) {
 	}
 	coachId, ok := coachIDstr.(uint)
 	if ok == false {
-		c.JSON(http.StatusNotFound, gin.H{"error": "coach_id couldnot converted"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "coach_id could not converted"})
 		return
 	}
 	students, err := r.RelationRep.FindActiveByCoach(coachId)
@@ -343,7 +348,7 @@ func (r *RelationS) LeaveCoach(c *gin.Context) {
 	body := map[string]interface{}{}
 	bindErr := c.ShouldBindJSON(&body)
 	if bindErr != nil {
-		banner := "couldnotget the infos"
+		banner := "could not get the infos"
 		utils.Response(c, utils.ResponseS{
 			Status: false,
 			Banner: &banner,
@@ -351,7 +356,14 @@ func (r *RelationS) LeaveCoach(c *gin.Context) {
 		return
 	}
 
-	coachID := body["coach_id"].(float64)
+	coachID, okC := body["coach_id"].(float64)
+	if okC == false {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+		return
+	}
 	coachId := uint(coachID)
 
 	relStatus := r.RelationRep.IsRelaitonActive(coachId, studentId)
@@ -378,21 +390,27 @@ func (r *RelationS) LeaveCoach(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": updateErr.Error()})
 		return
 	}
+	banner := "succesfully breaked up"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+	})
 
-	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
 // bunu addRating e ekleyebiliriz her koçu
 func (r *RelationS) GetPastCoach(c *gin.Context) {
 	studentID, getStatus := c.Get("user_id")
 	if getStatus == false {
-		banner := "couldnot converted"
+		banner := "could not converted"
 		utils.Response(c, utils.ResponseS{
 			Status: false,
 			Banner: &banner,
 			Data:   nil,
 		})
+		return
 	}
+
 	studentId, ok := studentID.(uint)
 	if ok == false {
 		banner := "hata"
@@ -401,7 +419,9 @@ func (r *RelationS) GetPastCoach(c *gin.Context) {
 			Banner: &banner,
 			Data:   nil,
 		})
+		return
 	}
+
 	coach, dbError := r.StudentRep.GetLastCoach(studentId)
 	if dbError != nil {
 		banner := "hata"
@@ -411,6 +431,7 @@ func (r *RelationS) GetPastCoach(c *gin.Context) {
 		})
 		return
 	}
+
 	relStatus := r.RelationRep.IsRelaitonBreakedUP(coach.UserID, studentId)
 	if relStatus != true {
 		banner := "hata"
@@ -421,4 +442,11 @@ func (r *RelationS) GetPastCoach(c *gin.Context) {
 		})
 		return
 	}
+
+	banner := "succes"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:   coach,
+	})
 }
