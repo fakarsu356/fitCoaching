@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fitcoaching/config"
 	"fitcoaching/models/entities"
 	"fitcoaching/repository"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type Authorization struct {
@@ -49,7 +51,7 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 	bodyHeight := data["bodyHeight"].(float64)
 	gender := entities.Genders(data["gender"].(string))
 
-	if username == "" || password == "" || passwordH == "" || email == "" || age == 0 || bodyFatPercentage == 0 || bodyWeight == 0 || bodyHeight == 0 || gender == "" {
+	if username == "" || password == "" || passwordH == "" || email == "" || age == 0 || bodyWeight == 0 || bodyHeight == 0 || gender == "" {
 		banner := "all places are required"
 		utils.Response(c, utils.ResponseS{
 			Status: false,
@@ -205,7 +207,16 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 	maxStudentStr := c.PostForm("max_students")
 	speciality := c.PostForm("speciality")
 	gender := c.PostForm("gender")
+	CV, CVerr := c.FormFile("CV")
 
+	if CVerr != nil {
+		banner := "cv is not valid"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 	maxStudent, errConv := strconv.Atoi(maxStudentStr)
 	if errConv != nil {
 		banner := "hata"
@@ -293,80 +304,164 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 		CreatedAt:    time.Now(),
 		Gender:       entities.Genders(gender),
 	}
-	realUser, errR := h.UserRep.Create(&user)
 
-	if errR != nil {
-		banner := "hata"
-		utils.Response(c, utils.ResponseS{
-			Status: false,
-			Banner: &banner,
-			Data:   nil,
-		})
-		return
-	}
+	err := h.UserRep.Db.Transaction(func(tx *gorm.DB) error {
 
-	coach := entities.Coach{
-		UserID:      realUser.ID,
-		User:        *realUser,
-		Speciality:  speciality,
-		MaxStudents: maxStudent,
-		Status:      entities.Free,
-	}
-	errCoach := h.CoachRep.Create(&coach)
-	if errCoach != nil {
-		banner := "hata"
-		utils.Response(c, utils.ResponseS{
-			Status: false,
-			Banner: &banner,
-			Data:   nil,
-		})
-		return
-	}
+		dbR := tx.Create(&user)
 
-	form, formErr := c.MultipartForm()
-	if formErr != nil {
-		banner := "hata"
-		utils.Response(c, utils.ResponseS{
-			Status: false,
-			Banner: &banner,
-		})
-		return
-	}
-	files := form.File["files"]
-	for _, file := range files {
+		if dbR.Error != nil {
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
+			return dbR.Error
+		}
 
-		if file.Size > config.MaxFileSize {
+		coach := entities.Coach{
+			UserID:      user.ID,
+			User:        user, // butası doğrumu create edince doğru bir şekilde id li hali atanıyomu direkt
+			Speciality:  speciality,
+			MaxStudents: maxStudent,
+			Status:      entities.Free,
+		}
+		dbCoach := tx.Create(&coach)
+		if dbCoach.Error != nil {
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
+			return dbCoach.Error
+		}
+
+		form, formErr := c.MultipartForm()
+		if formErr != nil {
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
+
+			return formErr
+		}
+		keybytes := []byte(os.Getenv("TOP_SECRET"))
+
+		files := form.File["certificates"]
+		for _, file := range files {
+
+			if file.Size > config.MaxFileSize {
+				banner := "file size too big"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return errors.New("file size too big")
+			}
+
+			bytesf, errHH := file.Open()
+			if errHH != nil {
+				banner := "file cant open"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return errHH
+			}
+
+			defer bytesf.Close()
+
+			bytes, errH := io.ReadAll(bytesf)
+			if errH != nil {
+				banner := "dosya okunamadı"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return errH
+			}
+
+			contentType := http.DetectContentType(bytes)
+			if !config.AllowedTypes[contentType] {
+				banner := "PDF, JPEG,JPG veya PNG kabul edilir"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+					Data:   nil,
+				})
+				return errors.New("file type is not allowed")
+			}
+			str := strconv.FormatUint(uint64(coach.UserID), 10)
+
+			fileDbName := str + "_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+
+			hashedDoc, hashError := utils.Encrypt(bytes, keybytes)
+			if hashError != nil {
+				banner := "hata"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+					Data:   nil,
+				})
+				return hashError
+			}
+
+			document := entities.Document{
+				UploaderID: coach.UserID,
+				UniqueName: fileDbName,
+				DocName:    file.Filename,
+				Size:       float64(file.Size),
+				Date:       time.Now(),
+				Doctype:    contentType,
+				File:       hashedDoc,
+				Type:       entities.CaochSertificate,
+			}
+			docdb := tx.Create(&document)
+			if docdb.Error != nil {
+				banner := "hata"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+					Data:   nil,
+				})
+				return docdb.Error
+			}
+		}
+
+		if CV.Size > config.MaxFileSize {
 			banner := "file size too big"
 			utils.Response(c, utils.ResponseS{
 				Status: false,
 				Banner: &banner,
 			})
-			return
+			return errors.New("file size too big")
 		}
 
-		bytesf, errH := file.Open()
-		if errH != nil {
+		CVbytesf, CVerrH := CV.Open()
+		if CVerrH != nil {
 			banner := "file cant open"
 			utils.Response(c, utils.ResponseS{
 				Status: false,
 				Banner: &banner,
 			})
-			return
+			return CVerrH
 		}
 
-		defer bytesf.Close()
+		defer CVbytesf.Close()
 
-		bytes, errH := io.ReadAll(bytesf)
-		if errH != nil {
+		CVbytes, CVerrH := io.ReadAll(CVbytesf)
+		if CVerrH != nil {
 			banner := "dosya okunamadı"
 			utils.Response(c, utils.ResponseS{
 				Status: false,
 				Banner: &banner,
 			})
-			return
+			return CVerrH
 		}
 
-		contentType := http.DetectContentType(bytes)
+		contentType := http.DetectContentType(CVbytes)
 		if !config.AllowedTypes[contentType] {
 			banner := "PDF, JPEG,JPG veya PNG kabul edilir"
 			utils.Response(c, utils.ResponseS{
@@ -374,15 +469,13 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 				Banner: &banner,
 				Data:   nil,
 			})
-			return
+			return errors.New("file type is not allowed")
 		}
 		str := strconv.FormatUint(uint64(coach.UserID), 10)
 
-		fileDbName := str + "_" + time.Now().String()
+		CVDbName := str + "_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
-		keybytes := []byte(os.Getenv("TOP_SECRET"))
-
-		hashedDoc, hashError := utils.Encrypt(bytes, keybytes)
+		hashedDoc, hashError := utils.Encrypt(CVbytes, keybytes)
 		if hashError != nil {
 			banner := "hata"
 			utils.Response(c, utils.ResponseS{
@@ -390,29 +483,40 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 				Banner: &banner,
 				Data:   nil,
 			})
-
-			return
+			return hashError
 		}
 
-		document := entities.Document{
+		CVdoc := entities.Document{
 			UploaderID: coach.UserID,
-			UniqueName: fileDbName,
-			DocName:    file.Filename,
-			Size:       float64(file.Size),
+			UniqueName: CVDbName,
+			DocName:    CV.Filename,
+			Size:       float64(CV.Size),
 			Date:       time.Now(),
-			DocType:    contentType,
+			Doctype:    contentType,
 			File:       hashedDoc,
+			Type:       entities.CV,
 		}
-		docerr := h.DocumentRep.Create(&document)
-		if docerr != nil {
+
+		CVdocdb := tx.Create(&CVdoc)
+		if CVdocdb.Error != nil {
 			banner := "hata"
 			utils.Response(c, utils.ResponseS{
 				Status: false,
 				Banner: &banner,
 				Data:   nil,
 			})
-			return
+			return CVdocdb.Error
 		}
+		return nil
+	})
+
+	if err != nil {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
 	}
 
 	banner := "Successfully registered"
@@ -421,7 +525,7 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 		Banner: &banner,
 		Data:   nil,
 	})
-	return
+
 }
 
 func (h *Authorization) LogIn(c *gin.Context) {

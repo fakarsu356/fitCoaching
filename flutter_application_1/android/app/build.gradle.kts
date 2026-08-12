@@ -1,12 +1,16 @@
 plugins {
     id("com.android.application")
+    // android.builtInKotlin kapalı olduğu için Kotlin desteği KGP'den geliyor.
+    // Sürümü settings.gradle.kts belirliyor. Burada tanımlı olmazsa aşağıdaki
+    // kotlin { } bloğu editörde çözülemiyor.
+    id("org.jetbrains.kotlin.android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
     namespace = "com.example.flutter_application_1"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

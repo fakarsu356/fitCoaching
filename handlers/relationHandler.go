@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fitcoaching/models"
 	"fitcoaching/models/entities"
 	"fitcoaching/repository"
 	"fitcoaching/utils"
@@ -33,7 +34,7 @@ func RelationCons(userRep repository.UserRepository, studentRep repository.Stude
 func (r *RelationS) GetCoaches(c *gin.Context) {
 
 	coaches, err := r.CoachRep.GetAllFrees()
-	filteredCoaches := make([]entities.Coach, 0)
+	filteredCoaches := make([]models.CoachM, 0)
 	if err != nil {
 		banner := "could not get the coaches"
 		utils.Response(c, utils.ResponseS{
@@ -43,8 +44,9 @@ func (r *RelationS) GetCoaches(c *gin.Context) {
 		return
 	}
 	for _, coach := range coaches {
-		if coach.MaxStudents > r.RelationRep.GetCoachsStudents(coach.UserID) {
-			filteredCoaches = append(filteredCoaches, coach)
+		activeStudents := r.RelationRep.GetCoachsStudents(coach.UserID)
+		if coach.MaxStudents > activeStudents {
+			filteredCoaches = append(filteredCoaches, models.NewCoachM(coach, coach.User, activeStudents))
 		}
 	}
 	banner := "success"
@@ -328,7 +330,27 @@ func (r *RelationS) GetMyCoach(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errCoach.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"Coach": coach})
+
+	coachUser, errUser := r.UserRep.GetById(coach.UserID)
+	if errUser != nil {
+		banner := "koç bilgisi bulunamadı"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	banner := "success"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data: models.NewCoachM(
+			coach,
+			coachUser,
+			r.RelationRep.GetCoachsStudents(coach.UserID),
+		),
+	})
 }
 
 // coachla öğrenci işlişkisi var mı bak
@@ -449,4 +471,44 @@ func (r *RelationS) GetPastCoach(c *gin.Context) {
 		Banner: &banner,
 		Data:   coach,
 	})
+}
+
+func (r *RelationS) GetRequest(c *gin.Context) {
+	studentID, getStatus := c.Get("user_id")
+	if getStatus == false {
+		banner := "could not converted"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+		return
+	}
+
+	studentId, ok := studentID.(uint)
+	if ok == false {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+		return
+	}
+	relation,dbErr:=r.RelationRep.FindStudentRequest(studentId)
+	if dbErr!= nil {
+		banner:="kayıt bulunamadı"
+		utils.Response(c,utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	banner:="success"
+	utils.Response(c,utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+		Data:relation.Status,
+	})
+
 }

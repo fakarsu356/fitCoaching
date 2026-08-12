@@ -48,6 +48,18 @@ func (d *DocumentS) AddDocument(c *gin.Context) {
 	}
 	userId := userID.(uint)
 
+	docType := entities.DocType(c.PostForm("type"))
+	if docType!=entities.CaochSertificate || docType!=entities.HealthResults||
+	 docType!=entities.MealPictures|| docType!=entities.CV{
+			banner := "invalid type"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	
+
 	form, formErr := c.MultipartForm()
 	if formErr != nil {
 		banner := "hata"
@@ -58,6 +70,14 @@ func (d *DocumentS) AddDocument(c *gin.Context) {
 		return
 	}
 	files := form.File["files"]
+	if len(files) == 0 {
+		banner := "en az 1 dosya gönderilmeli"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 	for _, file := range files {
 
 		if file.Size > config.MaxFileSize {
@@ -125,8 +145,9 @@ func (d *DocumentS) AddDocument(c *gin.Context) {
 			DocName:    file.Filename,
 			Size:       float64(file.Size),
 			Date:       time.Now(),
-			DocType:    contentType,
+			Doctype:    contentType,
 			File:       hashedDoc,
+			Type:       docType,
 		}
 		docerr := d.DocumentRep.Create(&document)
 		if docerr != nil {
@@ -410,21 +431,22 @@ func (d *DocumentS) GetDocumentList(c *gin.Context) {
 			})
 			return
 		}
-		if docs[0].UploaderID != userId {
+		if len(docs) > 0 && docs[0].UploaderID != userId {
 			banner := "kendi belgene istek at "
 			utils.Response(c, utils.ResponseS{
 				Status: false,
 				Banner: &banner,
 			})
+			return
 		}
 
-		var DocumentList []DocumentListItem
+		DocumentList := make([]DocumentListItem, 0, len(docs))
 
 		for _, doc := range docs {
 			temp := DocumentListItem{
 				ID:      doc.ID,
 				DocName: doc.DocName,
-				DocType: doc.DocType,
+				DocType: doc.Doctype,
 				Date:    doc.Date,
 			}
 			DocumentList = append(DocumentList, temp)
@@ -437,7 +459,15 @@ func (d *DocumentS) GetDocumentList(c *gin.Context) {
 		})
 	}
 	if role == "Coach" {
-		studentID := body["student_id"].(float64)
+		studentID, okStudent := body["student_id"].(float64)
+		if okStudent == false {
+			banner := "student_id gönderilmeli"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
+			return
+		}
 		studentId := uint(studentID)
 		status := d.RelationRep.IsRelaitonActive(userId, studentId)
 		if status != true {
@@ -459,20 +489,20 @@ func (d *DocumentS) GetDocumentList(c *gin.Context) {
 			return
 		}
 
-		var DocumentList []DocumentListItem
+		DocumentList := make([]DocumentListItem, 0, len(docs))
 
 		for _, doc := range docs {
 			temp := DocumentListItem{
 				ID:      doc.ID,
 				DocName: doc.DocName,
-				DocType: doc.DocType,
+				DocType: doc.Doctype,
 				Date:    doc.Date,
 			}
 			DocumentList = append(DocumentList, temp)
 		}
 		banner := "success"
 		utils.Response(c, utils.ResponseS{
-			Status: false,
+			Status: true,
 			Banner: &banner,
 			Data:   DocumentList,
 		})

@@ -66,18 +66,24 @@ func (r *RelationRepository) FindActiveByCoach(coachID uint) ([]entities.Student
 	dbRet := r.db.Where("coach_id = ? AND status=?", coachID, entities.StatusActive).Find(&relations)
 	for _, relation := range relations {
 		studentId := relation.StudentID
-		r.db.Model(entities.Student{}).Where("student = ?", studentId).Find(&student)
+		r.db.Model(entities.Student{}).Where("student_id = ?", studentId).Find(&student)
 		students = append(students, student)
 	}
 	return students, dbRet.Error
 
 }
+func (r *RelationRepository) FindPendingRequests(coachId uint) ([]entities.Relation, error) { //koçun requestlerini almak için
 
-func (r *RelationRepository) FindPendingRequests(coachId uint) ([]entities.Relation, error) {
+	var requests []entities.Relation
+	dbRet := r.db.Where("coach_id=?", coachId).Find(&requests)
+	return requests, dbRet.Error
+}
 
-	var pendingRequests []entities.Relation
-	dbRet := r.db.Where("coach_id=?", coachId).Find(&pendingRequests)
-	return pendingRequests, dbRet.Error
+func (r *RelationRepository) FindStudentsRequest(studentId uint) (entities.Relation, error) { //öğrencinin requestini almak için
+
+	var request entities.Relation
+	dbRet := r.db.Where("student_id=?", studentId).Order("date DESC").First(&request)
+	return request, dbRet.Error
 }
 
 // default time.Time nesnesi ne

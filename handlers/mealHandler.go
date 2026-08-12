@@ -220,7 +220,7 @@ func (w *MealS) GetStudentsMealsByDate(c *gin.Context) {
 			return
 		}
 
-		if meals[0].StudentID != studentId {
+		if len(meals) > 0 && meals[0].StudentID != studentId {
 			banner := "kendi verilerine istek at"
 			utils.Response(c, utils.ResponseS{
 				Status: false,
@@ -381,13 +381,13 @@ func (w *MealS) GetMealSumDaily(c *gin.Context) {
 			return
 		}
 
-		c.JSON(200, gin.H{"meals": meal})
-		banner := "hata"
+		banner := "success"
 		utils.Response(c, utils.ResponseS{
-			Status: false,
+			Status: true,
 			Banner: &banner,
-			Data:   nil,
+			Data:   meal,
 		})
+		return
 	}
 
 	if Role == "Student" {
@@ -403,8 +403,7 @@ func (w *MealS) GetMealSumDaily(c *gin.Context) {
 			return
 		}
 		if meal.StudentID != userId {
-			c.JSON(400, gin.H{"error": "kendi verilerine istek at "})
-			banner := "hata"
+			banner := "kendi verilerine istek at"
 			utils.Response(c, utils.ResponseS{
 				Status: false,
 				Banner: &banner,
@@ -413,12 +412,11 @@ func (w *MealS) GetMealSumDaily(c *gin.Context) {
 			return
 		}
 
-		c.JSON(200, gin.H{"meals": meal})
-		banner := "hata"
+		banner := "success"
 		utils.Response(c, utils.ResponseS{
-			Status: false,
+			Status: true,
 			Banner: &banner,
-			Data:   nil,
+			Data:   meal,
 		})
 	}
 }
@@ -462,7 +460,16 @@ func (w *MealS) DeleteMeal(c *gin.Context) {
 		return
 	}
 
-	mealID := data["meal_id"].(float64)
+	mealID, okMeal := data["meal_id"].(float64)
+	if okMeal == false {
+		banner := "meal_id gönderilmeli"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+		return
+	}
 	mealId := int(mealID)
 
 	meal, err := w.MealRep.GetById(mealId)
@@ -499,10 +506,9 @@ func (w *MealS) DeleteMeal(c *gin.Context) {
 		})
 		return
 	}
-	c.JSON(200, gin.H{"status": "deleted"})
-	banner := "hata"
+	banner := "deleted"
 	utils.Response(c, utils.ResponseS{
-		Status: false,
+		Status: true,
 		Banner: &banner,
 		Data:   nil,
 	})

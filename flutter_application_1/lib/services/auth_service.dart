@@ -1,37 +1,139 @@
 import 'package:dio/dio.dart';
-import '../models/base_response.dart';
+
+import '../core/api_client.dart';
+import '../core/api_result.dart';
+import '../core/json_utils.dart';
+
+/// Giriş sonucunda backend'in döndürdüğü token seti.
+class LoginResult {
+  const LoginResult({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.role,
+  });
+
+  final String accessToken;
+  final String refreshToken;
+  final String role;
+}
+
+/// Koç kaydında gönderilen dosya.
+class UploadFile {
+  const UploadFile({required this.name, required this.path});
+
+  final String name;
+  final String path;
+
+  Future<MultipartFile> toMultipart() =>
+      MultipartFile.fromFile(path, filename: name);
+}
 
 class AuthService {
-  // 10.0.2.2 Android emülatörün senin bilgisayarındaki Go sunucusuna bağlanma adresidir.
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'http://10.0.2.2:8080', 
-  ));
+  AuthService(this._client);
 
-  Future<BaseResponse<dynamic>> login({
+  final ApiClient _client;
+
+  /// POST /register/student — JSON gövde.
+  Future<ApiResult<void>> registerStudent({
+    required String name,
+    required String email,
+    required String password,
+    required String passwordConfirm,
+    required int age,
+    double? bodyFatPercentage,
+    required double bodyWeight,
+    required double bodyHeight,
+    required String gender,
+  }) async {
+    final result = await _client.post(
+      '/register/student',
+      authenticated: false,
+      body: {
+        'name': name,
+        'password': password,
+        'validatePassword': passwordConfirm,
+        'email': email,
+        'age': age,
+        // Yağ oranı opsiyonel; boş bırakılırsa backend'in "belirtilmedi" olarak
+        // yorumladığı 0 gönderilir.
+        'bodyFatPercentage': bodyFatPercentage ?? 0,
+        'bodyWeight': bodyWeight,
+        'bodyHeight': bodyHeight,
+        'gender': gender,
+      },
+    );
+    return ApiResult<void>(ok: result.ok, message: result.message);
+  }
+
+  /// POST /register/coach — multipart.
+  ///
+  /// Backend `CV` alanını tek dosya olarak zorunlu tutuyor, sertifikaları ise
+  /// `certificates` alanından çoklu okuyor.
+  Future<ApiResult<void>> registerCoach({
+    required String username,
+    required String email,
+    required String password,
+    required String passwordConfirm,
+    required int maxStudents,
+    required String speciality,
+    required String gender,
+    required UploadFile cv,
+    List<UploadFile> certificates = const [],
+  }) async {
+    final certificateFiles = <MultipartFile>[];
+    for (final file in certificates) {
+      certificateFiles.add(await file.toMultipart());
+    }
+
+    final result = await _client.postMultipart(
+      '/register/coach',
+      authenticated: false,
+      fields: {
+        'username': username,
+        'password': password,
+        'password_confirm': passwordConfirm,
+        'email': email,
+        'max_students': maxStudents.toString(),
+        'speciality': speciality,
+        'gender': gender,
+      },
+      files: certificateFiles,
+      filesFieldName: 'certificates',
+      namedFiles: {'CV': await cv.toMultipart()},
+    );
+    return ApiResult<void>(ok: result.ok, message: result.message);
+  }
+
+  /// POST /register/login
+  Future<ApiResult<LoginResult>> login({
     required String email,
     required String password,
   }) async {
-    try {
-      Map<String, dynamic> requestBody = {
-        "email": email,
-        "password": password,
-      };
+    final result = await _client.post(
+      '/register/login',
+      authenticated: false,
+      body: {'email': email, 'password': password},
+    );
 
-      // Go'daki giriş URL'ni buraya yazmalısın. Eğer farklıysa '/login' kısmını değiştir.
-      Response response = await _dio.post(
-        '/login', 
-        data: requestBody,
-      );
-
-      return BaseResponse.fromJson(response.data);
-
-    } on DioException catch (e) {
-      if (e.response != null && e.response?.data != null) {
-        return BaseResponse.fromJson(e.response!.data);
-      }
-      return BaseResponse(status: false, banner: "Sunucu hatası: ${e.message}");
-    } catch (e) {
-      return BaseResponse(status: false, banner: "Bir hata oluştu: $e");
+    if (!result.ok) {
+      return ApiResult.failure<LoginResult>(result.message);
     }
+
+    final data = asMap(result.data);
+    final accessToken = asString(data?['accesstoken']);
+    final refreshToken = asString(data?['refreshtoken']);
+    final role = asString(data?['role']);
+
+    if (accessToken.isEmpty || role.isEmpty) {
+      return ApiResult.failure<LoginResult>('Giriş yanıtı okunamadı');
+    }
+
+    return ApiResult.success<LoginResult>(
+      LoginResult(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        role: role,
+      ),
+    );
   }
 }

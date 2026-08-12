@@ -97,6 +97,8 @@ func main() {
 	router.POST("/relations/leave", utils.RequireRole("Student"), relationHandler.LeaveCoach)
 	router.POST("/relations/pastCoaches", utils.RequireRole("Student"), relationHandler.GetPastCoach)
 	router.POST("/relations/waitingRequests", utils.RequireRole("Student"), relationHandler.GetPendingRequests)
+	router.POST("/relations/myCoach", utils.RequireRole("Student"), relationHandler.GetMyCoach)
+	router.POST("/relations/myrequest", utils.RequireRole("Student"), relationHandler.GetRequest)
 
 	router.POST("/workout/workoutAdd", utils.RequireRole("Coach"), workoutHandler.AddWorkoutCoach)
 	router.POST("/workout/getworkout", utils.RequireRole("Student"), workoutHandler.GetTodayPlan)

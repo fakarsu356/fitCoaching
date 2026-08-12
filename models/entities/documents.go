@@ -10,6 +10,17 @@ type Document struct {
 	DocName    string    `gorm:"size:256;not null"`
 	Size       float64   `gorm:"not null"`
 	Date       time.Time `gorm:"not null;index"`
-	DocType    string    `gorm:"size:32;not null"`
+	Doctype    string    `gorm:"size:32;not null"`
 	File       []byte    `gorm:"type:longblob;not null"`
+	Type       DocType   `gorm:"size:16;not null;check:type IN ('CV','Sertificate','LabResults','ProgressPictures','MealPictures')"`
 }
+
+type DocType string
+
+const (
+	CV               DocType = "CV"
+	CaochSertificate DocType = "Sertificate"
+	HealthResults    DocType = "LabResults"
+	ProgressPictures DocType = "ProgressPictures"
+	MealPictures     DocType = "MealPictures"
+)

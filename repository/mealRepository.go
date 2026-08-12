@@ -43,7 +43,9 @@ func (r *MealRepository) FindByStudentAndDate(studentID uint, date time.Time) ([
 }
 func (r *MealRepository) SumByDate(studentID uint, date time.Time) (entities.Meal, error) {
 	var meals []entities.Meal
-	dbReturn := r.db.Where("student_id=? AND date=?", studentID, date).Find(&meals)
+	dayStart := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	dayEnd := dayStart.Add(24 * time.Hour)
+	dbReturn := r.db.Where("student_id=? AND date >= ? AND date < ?", studentID, dayStart, dayEnd).Find(&meals)
 	var Oil float64
 	var Kcal float64
 	var Protein float64
@@ -68,15 +70,14 @@ func (r *MealRepository) SumByDate(studentID uint, date time.Time) (entities.Mea
 
 // her bir kayıta bakmak saçma olabilir oyüzden her günün bir ortalamsı dönülüyor
 // biraz saçma oldu
+// Aralıktaki öğünleri tek tek döndürür; günlük toplam için SumByDate kullanılır.
+// Öğün id'si silme işlemi için gerektiğinden burada gruplama yapılmaz.
 func (r *MealRepository) GetALlMealsByDate(studentID uint, startDate time.Time, endDate time.Time) ([]entities.Meal, error) {
-	var meals []entities.Meal
-	dbReturn := r.db.Model(&entities.Meal{}).Select("date, SUM(student_id) as studentID SUM(kcal) as Kcal, SUM(protein) as Protein, SUM(oil) as Oil").
+	meals := make([]entities.Meal, 0)
+	dbReturn := r.db.Model(&entities.Meal{}).
 		Where("student_id = ? AND date BETWEEN ? AND ?", studentID, startDate, endDate).
-		Group("date").Scan(&meals)
-	studentId := int(studentID)
-	for _, meal := range meals {
-		meal.StudentID = uint(studentId / len(meals))
-	}
+		Order("date DESC").
+		Find(&meals)
 	return meals, dbReturn.Error
 }
 
