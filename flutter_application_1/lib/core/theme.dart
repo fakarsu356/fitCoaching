@@ -1,52 +1,98 @@
 import 'package:flutter/material.dart';
 
-/// Uygulamanın renk paleti. Zemin beyaz, vurgu canlı yeşil.
-/// İleride dark mode eklenirken sadece [AppTheme.dark] yazılması yeterli olacak
-/// şekilde tüm renkler burada tek yerde toplandı.
+/// Uygulamanın renk paleti — Bootstrap 5 sistemine göre kuruldu.
+///
+/// Bootstrap'te sayfa zemini gri (`--bs-body-tertiary-bg`), içerik ise beyaz
+/// kartların içinde durur. Vurgu rengi projeye özgü yeşil olarak korundu;
+/// gri/metin/kenarlık tonları Bootstrap'in gray ölçeğinden alındı.
+/// Dark mode eklenirken sadece [AppTheme.dark] yazılması yeterli olacak şekilde
+/// tüm renkler burada tek yerde toplandı.
 class AppColors {
   const AppColors._();
 
   static const Color primary = Color(0xFF16A34A);
   static const Color primaryDark = Color(0xFF15803D);
-  static const Color primarySoft = Color(0xFFECFDF5);
 
-  static const Color background = Color(0xFFFFFFFF);
+  /// Bootstrap'in `bg-label-*` mantığı: rengin beyaz üzerine açık tonu.
+  static const Color primarySoft = Color(0xFFE8F6EE);
+
+  /// Sayfa zemini (bs gray-100). Kartlar bunun üstünde beyaz durur.
+  static const Color background = Color(0xFFF8F9FA);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceMuted = Color(0xFFF9FAFB);
 
-  static const Color border = Color(0xFFE5E7EB);
-  static const Color borderStrong = Color(0xFFD1D5DB);
+  /// Kart içindeki ikincil kutular (bs gray-200).
+  static const Color surfaceMuted = Color(0xFFF1F3F5);
 
-  static const Color textPrimary = Color(0xFF111827);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color textMuted = Color(0xFF9CA3AF);
+  static const Color border = Color(0xFFE9ECEF);
+  static const Color borderStrong = Color(0xFFCED4DA);
 
-  static const Color success = Color(0xFF15803D);
-  static const Color successSoft = Color(0xFFECFDF3);
-  static const Color danger = Color(0xFFB91C1C);
-  static const Color dangerSoft = Color(0xFFFEF2F2);
-  static const Color warning = Color(0xFFB45309);
-  static const Color warningSoft = Color(0xFFFFFBEB);
-  static const Color info = Color(0xFF1D4ED8);
-  static const Color infoSoft = Color(0xFFEFF6FF);
+  static const Color textPrimary = Color(0xFF212529);
+  static const Color textSecondary = Color(0xFF6C757D);
+  static const Color textMuted = Color(0xFFADB5BD);
+
+  static const Color success = Color(0xFF198754);
+  static const Color successSoft = Color(0xFFE7F4EE);
+  static const Color danger = Color(0xFFDC3545);
+  static const Color dangerSoft = Color(0xFFFBEAEC);
+  static const Color warning = Color(0xFF997404);
+  static const Color warningSoft = Color(0xFFFFF6E0);
+  static const Color info = Color(0xFF0D6EFD);
+  static const Color infoSoft = Color(0xFFE7F0FE);
+
+  /// Yıldız/puan rengi (bs warning).
+  static const Color rating = Color(0xFFFFC107);
 }
 
 /// Ortak ölçüler — ekranlar arası tutarlılık için.
+///
+/// Boşluklar Bootstrap'in spacer ölçeğine (4 / 8 / 16 / 24 / 48) oturur,
+/// yarıçaplar `--bs-border-radius` ailesine (4 / 6 / 8) karşılık gelir.
 class AppSizes {
   const AppSizes._();
 
-  static const double radius = 10;
+  /// Kart yarıçapı (bs `border-radius-lg`).
+  static const double radius = 8;
+
+  /// Alan, buton ve rozet yarıçapı (bs `border-radius`).
   static const double radiusSmall = 6;
-  static const double pagePadding = 20;
+
+  /// En küçük yarıçap (bs `border-radius-sm`).
+  static const double radiusTiny = 4;
+
+  static const double pagePadding = 16;
   static const double gap = 16;
   static const double gapSmall = 8;
-  static const double gapLarge = 28;
+  static const double gapLarge = 24;
 
   /// Avatar ve ikon kutularının tek ölçüsü.
   static const double avatar = 44;
 
   /// Liste satırı gibi ince kartların iç boşluğu.
   static const double cardPaddingCompact = 12;
+
+  /// Kartların standart iç boşluğu.
+  static const double cardPadding = 16;
+
+  /// Buton ve giriş alanlarının tek yüksekliği.
+  static const double controlHeight = 48;
+
+  /// "Set 1" etiketinin sabit genişliği — plan listesi ile tamamlama formundaki
+  /// satırların hizası aynı olsun diye.
+  static const double setLabelWidth = 52;
+}
+
+/// Bootstrap'in `box-shadow-sm` karşılığı — kartları zeminden ayıran yumuşak
+/// gölge. Tek yerde durur ki bütün kartlar aynı derinlikte olsun.
+class AppShadows {
+  const AppShadows._();
+
+  static const List<BoxShadow> card = [
+    BoxShadow(
+      color: Color(0x14435971),
+      blurRadius: 6,
+      offset: Offset(0, 2),
+    ),
+  ];
 }
 
 class AppTheme {
@@ -64,11 +110,13 @@ class AppTheme {
       error: AppColors.danger,
     );
 
-    const borderRadius = BorderRadius.all(Radius.circular(AppSizes.radius));
+    const controlRadius = BorderRadius.all(
+      Radius.circular(AppSizes.radiusSmall),
+    );
 
     OutlineInputBorder inputBorder(Color color, [double width = 1]) {
       return OutlineInputBorder(
-        borderRadius: borderRadius,
+        borderRadius: controlRadius,
         borderSide: BorderSide(color: color, width: width),
       );
     }
@@ -80,19 +128,22 @@ class AppTheme {
       canvasColor: AppColors.background,
       dividerColor: AppColors.border,
       splashFactory: InkSparkle.splashFactory,
+      // Bootstrap navbar'ı gibi: beyaz zemin, altında ince ayraç.
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        shape: Border(bottom: BorderSide(color: AppColors.border)),
         titleTextStyle: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
       ),
+      // Bootstrap tipografisi: gövde 1rem, `small` 0.875rem, h5 1.25rem.
       textTheme: const TextTheme(
         headlineSmall: TextStyle(
           fontSize: 24,
@@ -101,21 +152,25 @@ class AppTheme {
           height: 1.25,
         ),
         titleMedium: TextStyle(
-          fontSize: 16,
+          fontSize: 17,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
         titleSmall: TextStyle(
-          fontSize: 14,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
         bodyMedium: TextStyle(
-          fontSize: 14,
+          fontSize: 15,
           color: AppColors.textPrimary,
+          height: 1.5,
+        ),
+        bodySmall: TextStyle(
+          fontSize: 13,
+          color: AppColors.textSecondary,
           height: 1.45,
         ),
-        bodySmall: TextStyle(fontSize: 13, color: AppColors.textSecondary),
         labelSmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
@@ -127,14 +182,15 @@ class AppTheme {
         fillColor: AppColors.surface,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
+          horizontal: 12,
           vertical: 14,
         ),
         border: inputBorder(AppColors.borderStrong),
         enabledBorder: inputBorder(AppColors.borderStrong),
-        focusedBorder: inputBorder(AppColors.primary, 1.6),
+        // bs `:focus` — kenarlık vurgu rengine döner ve kalınlaşır.
+        focusedBorder: inputBorder(AppColors.primary, 1.8),
         errorBorder: inputBorder(AppColors.danger),
-        focusedErrorBorder: inputBorder(AppColors.danger, 1.6),
+        focusedErrorBorder: inputBorder(AppColors.danger, 1.8),
         labelStyle: const TextStyle(color: AppColors.textSecondary),
         floatingLabelStyle: const TextStyle(color: AppColors.primary),
         hintStyle: const TextStyle(color: AppColors.textMuted),
@@ -149,17 +205,18 @@ class AppTheme {
           disabledBackgroundColor: AppColors.borderStrong,
           disabledForegroundColor: Colors.white,
           elevation: 0,
-          minimumSize: const Size.fromHeight(50),
-          shape: const RoundedRectangleBorder(borderRadius: borderRadius),
+          minimumSize: const Size.fromHeight(AppSizes.controlHeight),
+          shape: const RoundedRectangleBorder(borderRadius: controlRadius),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
-          minimumSize: const Size.fromHeight(50),
+          backgroundColor: AppColors.surface,
+          minimumSize: const Size.fromHeight(AppSizes.controlHeight),
           side: const BorderSide(color: AppColors.borderStrong),
-          shape: const RoundedRectangleBorder(borderRadius: borderRadius),
+          shape: const RoundedRectangleBorder(borderRadius: controlRadius),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
@@ -177,19 +234,28 @@ class AppTheme {
           borderRadius: BorderRadius.all(Radius.circular(AppSizes.radiusSmall)),
         ),
       ),
+      cardTheme: const CardThemeData(
+        color: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+      ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.textPrimary,
         contentTextStyle: TextStyle(color: Colors.white, fontSize: 14),
-        shape: RoundedRectangleBorder(borderRadius: borderRadius),
+        shape: RoundedRectangleBorder(borderRadius: controlRadius),
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.primary,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         indicatorColor: AppColors.primarySoft,
+        indicatorShape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppSizes.radiusSmall)),
+        ),
         elevation: 0,
         height: 64,
         labelTextStyle: WidgetStateProperty.resolveWith(

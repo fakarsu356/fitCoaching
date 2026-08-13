@@ -16,7 +16,9 @@ func StudentCons(db *gorm.DB) StudentRepository {
 }
 func (r *StudentRepository) Create(student *entities.Student) error {
 
-	return r.db.Create(&student).Error
+	// student zaten pointer; &student ile **Student gönderilirse GORM
+	// "unsupported data type" hatası veriyor.
+	return r.db.Create(student).Error
 }
 
 func (r *StudentRepository) Update(student entities.Student) error {

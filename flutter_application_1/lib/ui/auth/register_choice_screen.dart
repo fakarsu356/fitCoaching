@@ -15,6 +15,10 @@ class RegisterChoiceScreen extends StatelessWidget {
     return AuthScaffold(
       title: 'Kayıt ol',
       subtitle: 'Hangi rolle devam edeceksin?',
+      // Başlık ve rol kartları ekranın üstünde dursun; dikeyde ortalanmıyor.
+      alignTop: true,
+      // Rol kartları kendi kartlarını çiziyor, sarmalayıcı karta gerek yok.
+      card: false,
       children: [
         _RoleCard(
           icon: Icons.person_outline,
@@ -33,7 +37,6 @@ class RegisterChoiceScreen extends StatelessWidget {
           title: 'Koç',
           description:
               'Öğrenci isteklerini yönet, antrenman programı yaz, gelişimi takip et.',
-          hint: 'CV ve sertifika yüklemen gerekir.',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => const CoachRegisterScreen(),
@@ -51,13 +54,11 @@ class _RoleCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.onTap,
-    this.hint,
   });
 
   final IconData icon;
   final String title;
   final String description;
-  final String? hint;
   final VoidCallback onTap;
 
   @override
@@ -87,10 +88,6 @@ class _RoleCard extends StatelessWidget {
                   description,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                if (hint != null) ...[
-                  const SizedBox(height: 8),
-                  Text(hint!, style: Theme.of(context).textTheme.labelSmall),
-                ],
               ],
             ),
           ),

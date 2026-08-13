@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
+import '../widgets/common.dart';
 
-/// Giriş/kayıt ekranlarının ortak iskeleti: dar kolonlu, beyaz.
+/// Giriş/kayıt ekranlarının ortak iskeleti: gri zemin üzerinde dar kolon.
+///
+/// Bootstrap'in auth sayfaları gibi, içerik varsayılan olarak beyaz bir kartın
+/// içinde durur; [card] false verilirse çocuklar doğrudan zemine yerleşir
+/// (rol seçimi gibi kendi kartlarını çizen ekranlar için).
 ///
 /// [title] verilmezse başlık bloğu hiç çizilmez; giriş ekranı başlık yerine
 /// [AppWordmark] kullanıyor. [alignTop] içeriği dikeyde ortalamak yerine
@@ -15,6 +20,7 @@ class AuthScaffold extends StatelessWidget {
     this.subtitle,
     this.showBack = true,
     this.alignTop = false,
+    this.card = true,
   });
 
   final String? title;
@@ -22,9 +28,45 @@ class AuthScaffold extends StatelessWidget {
   final List<Widget> children;
   final bool showBack;
   final bool alignTop;
+  final bool card;
 
   @override
   Widget build(BuildContext context) {
+    final header = title == null
+        ? null
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title!, style: Theme.of(context).textTheme.headlineSmall),
+              if (subtitle != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  subtitle!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              const SizedBox(height: AppSizes.gapLarge),
+            ],
+          );
+
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Kart görünümünde başlık da kartın içinde; aksi hâlde zeminde durur.
+        if (header != null && !card) header,
+        if (card)
+          AppCard(
+            padding: const EdgeInsets.all(AppSizes.gapLarge),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [?header, ...children],
+            ),
+          )
+        else
+          ...children,
+      ],
+    );
+
     return Scaffold(
       appBar: showBack
           ? AppBar(
@@ -46,26 +88,7 @@ class AuthScaffold extends StatelessWidget {
             ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (title != null) ...[
-                    Text(
-                      title!,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        subtitle!,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                    const SizedBox(height: AppSizes.gapLarge),
-                  ],
-                  ...children,
-                ],
-              ),
+              child: body,
             ),
           ),
         ),

@@ -6,6 +6,7 @@ import '../../models/coach.dart';
 import '../../services/services.dart';
 import '../widgets/common.dart';
 import 'coach_card.dart';
+import 'coach_profile_screen.dart';
 
 /// Koç listesi ekranının çıkışı.
 ///
@@ -67,17 +68,19 @@ class _CoachListScreenState extends State<CoachListScreen> {
     });
   }
 
-  Future<void> _sendRequest(Coach coach) async {
-    final confirmed = await confirmDialog(
-      context,
-      title: 'İstek gönder',
-      message:
-          '${coach.displayName} adlı koça bağlanma isteği gönderilecek. '
-          'Aynı anda yalnızca bir isteğin olabilir.',
-      confirmLabel: 'Gönder',
+  /// Koç profilini açar; öğrenci oradan istek göndermeyi seçerse isteği bu
+  /// ekran gönderir — "tek istek" kuralının cevapları burada yorumlanıyor.
+  Future<void> _openProfile(Coach coach) async {
+    final requested = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => CoachProfileScreen(coach: coach, canRequest: true),
+      ),
     );
-    if (!confirmed || !mounted) return;
+    if (requested != true || !mounted) return;
+    await _sendRequest(coach);
+  }
 
+  Future<void> _sendRequest(Coach coach) async {
     setState(() => _sending = true);
     final result = await context.read<AppServices>().relations.sendRequest(
       coach.userId,
@@ -147,7 +150,7 @@ class _CoachListScreenState extends State<CoachListScreen> {
                 return CoachCard(
                   coach: coach,
                   compact: true,
-                  onTap: _sending ? null : () => _sendRequest(coach),
+                  onTap: _sending ? null : () => _openProfile(coach),
                 );
               },
             ),

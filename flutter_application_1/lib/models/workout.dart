@@ -123,8 +123,13 @@ class Workout {
 
   int get totalSets => sets.length;
 
-  double get totalVolume =>
-      sets.fold(0, (sum, set) => sum + (set.reps * set.weight));
+  /// Antrenmanın ait olduğu programın kimliği.
+  ///
+  /// Öğrencinin kaydı ve koçun kopyaladığı planlar kaynak plana, ilk plan da
+  /// kendi id'sine bağlanır. Gelişim bu değerle eşleşen seanslar arasında
+  /// ölçülür: "bir önceki antrenman" başka bir program olabileceği için
+  /// karşılaştırma her zaman aynı programın önceki seansıyla yapılır.
+  int get programId => sourcePlanId ?? id;
 
   /// Plandaki farklı hareket adları (sırayı korur).
   List<String> get movements {

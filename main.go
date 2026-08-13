@@ -58,6 +58,8 @@ func main() {
 	ratingHandler := handlers.RatingCons(userRepo, studentRepo, coachRepo, relationRepo, ratingRepo)
 	documentHandler := handlers.DocumentCons(userRepo, studentRepo, coachRepo, relationRepo, documentRepo)
 
+	profileHandler := handlers.ProfileCons(userRepo, studentRepo, coachRepo, relationRepo, documentRepo, ratingRepo)
+
 	c := cron.New()
 	c.AddFunc("0 1 * * *", func() {
 		relations, err := relationRepo.FindExpiredRequests()
@@ -123,6 +125,8 @@ func main() {
 	router.POST("/document/addDocuments", utils.AuthMiddleware(), documentHandler.AddDocument)
 	router.POST("/document/getDocumentList", utils.AuthMiddleware(), documentHandler.GetDocumentList)
 	router.POST("/document/getDocument", utils.AuthMiddleware(), documentHandler.GetDocument)
+
+	router.POST("/profile/getCoach", utils.AuthMiddleware(), profileHandler.CoachProfile)
 
 	router.Run(":8080")
 }

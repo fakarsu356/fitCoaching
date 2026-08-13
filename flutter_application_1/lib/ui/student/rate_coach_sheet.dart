@@ -14,7 +14,9 @@ Future<bool> showRateCoachSheet(BuildContext context, Coach coach) async {
     isScrollControlled: true,
     backgroundColor: AppColors.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppSizes.radius),
+      ),
     ),
     builder: (_) => _RateCoachSheet(coach: coach),
   );
@@ -101,7 +103,7 @@ class _RateCoachSheetState extends State<_RateCoachSheet> {
                 icon: Icon(
                   filled ? Icons.star_rounded : Icons.star_border_rounded,
                   size: 34,
-                  color: filled ? AppColors.primary : AppColors.borderStrong,
+                  color: filled ? AppColors.rating : AppColors.borderStrong,
                 ),
                 tooltip: '$value puan',
               );

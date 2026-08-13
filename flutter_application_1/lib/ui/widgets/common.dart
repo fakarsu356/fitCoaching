@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 
-/// İnce kenarlıklı, gölgesiz kart. Uygulamadaki tüm gruplamalar bunu kullanır.
+/// Bootstrap 5 `.card` karşılığı: beyaz zemin, ince kenarlık ve yumuşak gölge.
+/// Uygulamadaki tüm gruplamalar bunu kullanır.
 class AppCard extends StatelessWidget {
   const AppCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(AppSizes.cardPadding),
     this.onTap,
     this.borderColor,
     this.background,
@@ -21,22 +22,28 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = Container(
+    const radius = BorderRadius.all(Radius.circular(AppSizes.radius));
+
+    return Container(
       width: double.infinity,
-      padding: padding,
       decoration: BoxDecoration(
         color: background ?? AppColors.surface,
         border: Border.all(color: borderColor ?? AppColors.border),
-        borderRadius: BorderRadius.circular(AppSizes.radius),
+        borderRadius: radius,
+        boxShadow: AppShadows.card,
       ),
-      child: child,
-    );
-
-    if (onTap == null) return content;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSizes.radius),
-      child: content,
+      // Dalga efekti kartın zemininin üstünde kalsın diye Material/InkWell
+      // içeride: dıştaki Container donuk olduğu için altına çizilen splash
+      // görünmezdi.
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: radius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Padding(padding: padding, child: child),
+        ),
+      ),
     );
   }
 }
@@ -127,6 +134,55 @@ class StatusPill extends StatelessWidget {
   }
 }
 
+/// Puanı yıldızla gösterir. Yarım puanları da çizer; tıklanabilir değil,
+/// puan verme akışı `RateCoachSheet` içinde.
+class RatingStars extends StatelessWidget {
+  const RatingStars({
+    super.key,
+    required this.value,
+    this.size = 18,
+    this.label,
+  });
+
+  /// 0-5 arası ortalama puan.
+  final double value;
+  final double size;
+
+  /// Yıldızların sağında gösterilecek metin (örn. "4,0 · 12 değerlendirme").
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var star = 1; star <= 5; star++)
+          Icon(
+            value >= star
+                ? Icons.star_rounded
+                : value >= star - 0.5
+                ? Icons.star_half_rounded
+                : Icons.star_border_rounded,
+            size: size,
+            color: value >= star - 0.5
+                ? AppColors.rating
+                : AppColors.borderStrong,
+          ),
+        if (label != null) ...[
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label!,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// Etiket + değer satırı.
 class InfoRow extends StatelessWidget {
   const InfoRow(this.label, this.value, {super.key});
@@ -174,7 +230,6 @@ class MetricTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surfaceMuted,
         borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
-        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -8,7 +8,7 @@ import 'services/services.dart';
 import 'state/auth_controller.dart';
 import 'ui/auth/login_screen.dart';
 import 'ui/home/home_placeholder.dart';
-import 'ui/student/student_coach_screen.dart';
+import 'ui/student/student_shell.dart';
 
 void main() {
   runApp(const FitCoachingApp());
@@ -80,9 +80,7 @@ class AppRoot extends StatelessWidget {
       case AuthStatus.coach:
         return const HomePlaceholderScreen(isCoach: true);
       case AuthStatus.student:
-        // Antrenman ve takip sekmeleri eklendiğinde burası alt menülü bir
-        // kabuğa dönüşecek; şu an tek ekran var.
-        return const StudentCoachScreen();
+        return const StudentShell();
     }
   }
 }

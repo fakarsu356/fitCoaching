@@ -10,6 +10,7 @@ import '../../state/auth_controller.dart';
 import '../widgets/common.dart';
 import 'coach_card.dart';
 import 'coach_list_screen.dart';
+import 'coach_profile_screen.dart';
 import 'rate_coach_sheet.dart';
 
 /// Öğrencinin koç durumu: aktif koçu varsa koç kartı ve ayrılma; yoksa koç
@@ -119,6 +120,14 @@ class _StudentCoachScreenState extends State<StudentCoachScreen> {
     if (mounted) showAppSnack(context, 'Koçundan ayrıldın');
   }
 
+  /// Koçun puanı ve sertifikaları yalnızca profil ucunda döndüğü için kart
+  /// ayrıntıları göstermiyor; profil ekranına geçiliyor.
+  Future<void> _openProfile(Coach coach) {
+    return Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => CoachProfileScreen(coach: coach)),
+    );
+  }
+
   Future<void> _rate(Coach coach) async {
     final saved = await showRateCoachSheet(context, coach);
     if (!saved || !mounted) return;
@@ -170,6 +179,7 @@ class _StudentCoachScreenState extends State<StudentCoachScreen> {
                       coach: _coach!,
                       busy: _busy,
                       onLeave: () => _leaveCoach(_coach!),
+                      onOpenProfile: () => _openProfile(_coach!),
                     )
                   else
                     _NoCoach(
@@ -196,11 +206,13 @@ class _ActiveCoach extends StatelessWidget {
     required this.coach,
     required this.busy,
     required this.onLeave,
+    required this.onOpenProfile,
   });
 
   final Coach coach;
   final bool busy;
   final VoidCallback onLeave;
+  final VoidCallback onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -214,6 +226,7 @@ class _ActiveCoach extends StatelessWidget {
         CoachCard(
           coach: coach,
           showContact: true,
+          onTap: onOpenProfile,
           action: OutlinedButton(
             onPressed: busy ? null : onLeave,
             style: OutlinedButton.styleFrom(

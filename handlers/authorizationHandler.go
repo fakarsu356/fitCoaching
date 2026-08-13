@@ -172,8 +172,10 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 		return
 	}
 	student := entities.Student{
+		// User alanı bilerek boş: dolu gönderilirse GORM ilişkili User'ı
+		// users tablosuna bir daha yazmaya çalışıyor; UserID yeterli.
+		// ? user ı kaldır burdaki eşleştirmeyi kendi mi yapıyor gorm user ile
 		UserID:        realUser.ID,
-		User:          *realUser,
 		Age:           uint(age),
 		BodyWeight:    bodyWeight,
 		FatPercentage: bodyFatPercentage,

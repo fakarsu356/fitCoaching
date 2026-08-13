@@ -9,7 +9,7 @@ import '../widgets/common.dart';
 ///
 /// İki görünümü var:
 /// * [compact] — koç arama listesi için tek satırlık, ince kart. Kartın kendisi
-///   tıklanabilir, ayrı bir buton yer kaplamasın diye.
+///   tıklanabilir (koç profiline gider), ayrı bir buton yer kaplamasın diye.
 /// * varsayılan — "Koçum" ekranındaki ayrıntılı kart (iletişim bilgisi ve
 ///   alttaki aksiyon düğmesiyle).
 ///
@@ -37,7 +37,7 @@ class CoachCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final header = Row(
       children: [
-        _Avatar(name: coach.displayName),
+        CoachAvatar(name: coach.displayName),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -69,9 +69,9 @@ class CoachCard extends StatelessWidget {
         if (compact) ...[
           const SizedBox(width: 4),
           const Icon(
-            Icons.person_add_alt_1_outlined,
-            size: 20,
-            color: AppColors.primary,
+            Icons.chevron_right,
+            size: 22,
+            color: AppColors.textMuted,
           ),
         ],
       ],
@@ -106,10 +106,12 @@ class CoachCard extends StatelessWidget {
 }
 
 /// Baş harften oluşan basit avatar — profil fotoğrafı henüz yok.
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.name});
+/// Ölçüsü [AppSizes.avatar] üzerinden büyütülür ki yazı boyu da orantılı kalsın.
+class CoachAvatar extends StatelessWidget {
+  const CoachAvatar({super.key, required this.name, this.size = AppSizes.avatar});
 
   final String name;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -117,8 +119,8 @@ class _Avatar extends StatelessWidget {
     final initial = trimmed.isEmpty ? '?' : trimmed[0].toUpperCase();
 
     return Container(
-      width: AppSizes.avatar,
-      height: AppSizes.avatar,
+      width: size,
+      height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppColors.primarySoft,
@@ -126,8 +128,8 @@ class _Avatar extends StatelessWidget {
       ),
       child: Text(
         initial,
-        style: const TextStyle(
-          fontSize: 18,
+        style: TextStyle(
+          fontSize: size * 0.41,
           fontWeight: FontWeight.w700,
           color: AppColors.primary,
         ),

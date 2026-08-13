@@ -68,6 +68,45 @@ class AppDate {
     return '${date.day} ${_months[date.month - 1]} ${date.year}';
   }
 
+  /// `DateTime.weekday` 1'den (Pazartesi) başlar.
+  static const List<String> _weekdays = [
+    'Pazartesi',
+    'Salı',
+    'Çarşamba',
+    'Perşembe',
+    'Cuma',
+    'Cumartesi',
+    'Pazar',
+  ];
+
+  /// Yakın tarihi gün adıyla, eskisini düz tarihle yazar:
+  /// "Bugün", "Dün", "Cuma", "Geçen hafta Cuma", "31 Temmuz 2026".
+  ///
+  /// Sınır geçen hafta: daha eskisinde "üç hafta önce Salı" gibi ifadeler
+  /// hangi güne denk geldiğini anlatmaktan çok kafa karıştırdığı için tarihin
+  /// kendisi yazılıyor. Hafta pazartesi başlar.
+  static String relative(DateTime? date) {
+    if (date == null) return '-';
+
+    final now = DateTime.now();
+    if (isSameDay(date, now)) return 'Bugün';
+    if (isSameDay(date, now.subtract(const Duration(days: 1)))) return 'Dün';
+
+    // Gün başlangıçlarıyla karşılaştırılıyor ki saat farkı sonucu kaydırmasın.
+    final day = DateTime(date.year, date.month, date.day);
+    final weekStart = DateTime(now.year, now.month, now.day - (now.weekday - 1));
+    final lastWeekStart = DateTime(
+      weekStart.year,
+      weekStart.month,
+      weekStart.day - 7,
+    );
+    final name = _weekdays[day.weekday - 1];
+
+    if (!day.isBefore(weekStart)) return name;
+    if (!day.isBefore(lastWeekStart)) return 'Geçen hafta $name';
+    return readable(date);
+  }
+
   /// İki tarih arasındaki farkı "3 sa 45 dk" biçiminde verir.
   static String duration(DateTime? from, DateTime? to) {
     if (from == null || to == null) return '-';

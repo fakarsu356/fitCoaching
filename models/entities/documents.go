@@ -10,7 +10,7 @@ type Document struct {
 	DocName    string    `gorm:"size:256;not null"`
 	Size       float64   `gorm:"not null"`
 	Date       time.Time `gorm:"not null;index"`
-	Doctype    string    `gorm:"size:32;not null"`
+	Doctype    string    `gorm:"size:32;not null"`  //pdf falan fln
 	File       []byte    `gorm:"type:longblob;not null"`
 	Type       DocType   `gorm:"size:16;not null;check:type IN ('CV','Sertificate','LabResults','ProgressPictures','MealPictures')"`
 }

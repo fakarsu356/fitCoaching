@@ -46,15 +46,26 @@ func (r *RatingRepository) FindByStudentAndCoach(studentID, coachID uint) (*enti
 func (r *RatingRepository) AverageByCoach(coachID uint) (float64, error) {
 	var ratings []entities.Rating
 	dbRet := r.db.Model(entities.Rating{}).Where(" coach_id = ?", coachID).Find(&ratings)
-	var totalPuan int
-	temp := 0
+	var totalPuan float64
+	temp := 0.0
 	for _, puan := range ratings {
-		totalPuan = totalPuan + puan.Score
+		totalPuan = totalPuan + float64(puan.Score)
 		temp++
-	}
+	}	
 	if temp == 0 {
 		return -1, dbRet.Error
 	}
 	avrg := totalPuan / temp
 	return float64(avrg), dbRet.Error
+}
+func (r *RatingRepository) NumbersOfRate(coachID uint) int {
+	var ratings []entities.Rating
+	dbRet := r.db.Model(entities.Rating{}).Where(" coach_id = ?", coachID).Find(&ratings)
+	if dbRet.Error != nil {
+		return -1
+	}
+	if len(ratings) == 0 {
+		return 0
+	}
+	return len(ratings)
 }
