@@ -1,6 +1,9 @@
 import '../core/json_utils.dart';
 
 /// `entities.Meal` — PascalCase döner.
+///
+/// `karb` ve `lif` sonradan eklendi: bu alanlar yokken kaydedilmiş öğünlerde
+/// sunucu 0 döndürür, ekranda da 0 g görünür.
 class Meal {
   const Meal({
     required this.id,
@@ -10,6 +13,8 @@ class Meal {
     required this.kcal,
     required this.protein,
     required this.oil,
+    required this.karb,
+    required this.lif,
     this.date,
   });
 
@@ -20,6 +25,12 @@ class Meal {
   final double kcal;
   final double protein;
   final double oil;
+
+  /// Karbonhidrat (g).
+  final double karb;
+
+  /// Lif (g).
+  final double lif;
   final DateTime? date;
 
   factory Meal.fromJson(Map<String, dynamic> json) {
@@ -31,6 +42,8 @@ class Meal {
       kcal: asDouble(pick(json, ['Kcal', 'kcal'])),
       protein: asDouble(pick(json, ['Protein', 'protein'])),
       oil: asDouble(pick(json, ['Oil', 'oil'])),
+      karb: asDouble(pick(json, ['Karb', 'karb'])),
+      lif: asDouble(pick(json, ['Lif', 'lif'])),
       date: DateTime.tryParse(
         asString(pick(json, ['Date', 'date'])),
       )?.toLocal(),
@@ -44,28 +57,41 @@ class MealSummary {
     required this.kcal,
     required this.protein,
     required this.oil,
+    required this.karb,
+    required this.lif,
     this.date,
   });
 
   final double kcal;
   final double protein;
   final double oil;
+  final double karb;
+  final double lif;
   final DateTime? date;
 
-  bool get isEmpty => kcal == 0 && protein == 0 && oil == 0;
+  bool get isEmpty =>
+      kcal == 0 && protein == 0 && oil == 0 && karb == 0 && lif == 0;
 
   factory MealSummary.fromJson(Map<String, dynamic> json) {
     return MealSummary(
       kcal: asDouble(pick(json, ['Kcal', 'kcal'])),
       protein: asDouble(pick(json, ['Protein', 'protein'])),
       oil: asDouble(pick(json, ['Oil', 'oil'])),
+      karb: asDouble(pick(json, ['Karb', 'karb'])),
+      lif: asDouble(pick(json, ['Lif', 'lif'])),
       date: DateTime.tryParse(
         asString(pick(json, ['Date', 'date'])),
       )?.toLocal(),
     );
   }
 
-  static const MealSummary empty = MealSummary(kcal: 0, protein: 0, oil: 0);
+  static const MealSummary empty = MealSummary(
+    kcal: 0,
+    protein: 0,
+    oil: 0,
+    karb: 0,
+    lif: 0,
+  );
 }
 
 /// `entities.Sleep`

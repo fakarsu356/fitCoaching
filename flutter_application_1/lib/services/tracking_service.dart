@@ -22,6 +22,8 @@ class MealService {
     required double kcal,
     required double protein,
     required double oil,
+    required double karb,
+    required double lif,
   }) async {
     final result = await _client.post(
       '/meal/addMeal',
@@ -31,6 +33,8 @@ class MealService {
         'kcal': kcal,
         'protein': protein,
         'oil': oil,
+        'karb': karb,
+        'lif': lif,
       },
     );
     return ApiResult<void>(ok: result.ok, message: result.message);

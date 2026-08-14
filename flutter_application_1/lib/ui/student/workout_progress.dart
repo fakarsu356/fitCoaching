@@ -193,14 +193,19 @@ String setLineShort(WorkoutSet set) {
   return '${set.reps} × ${formatNumber(set.weight)} kg';
 }
 
+/// Adı boş kaydedilmiş setlerin başlığı.
+///
+/// Böyle setler listeden atılırsa antrenman "0 hareket" görünür ve sorunun
+/// setlerde olduğu ekrandan anlaşılmaz; bu yüzden gizlenmiyorlar.
+const String unnamedMovement = 'Hareket adı yok';
+
 /// Setleri hareket adına göre gruplar; her grup set numarasına göre sıralanır.
 /// Ekleme sırası korunur, yani hareketler koçun yazdığı sırayla kalır.
 Map<String, List<WorkoutSet>> groupByMovement(List<WorkoutSet> sets) {
   final grouped = <String, List<WorkoutSet>>{};
   for (final set in sets) {
     final name = set.movementName.trim();
-    if (name.isEmpty) continue;
-    grouped.putIfAbsent(name, () => []).add(set);
+    grouped.putIfAbsent(name.isEmpty ? unnamedMovement : name, () => []).add(set);
   }
   for (final group in grouped.values) {
     group.sort((a, b) => a.setNumber.compareTo(b.setNumber));

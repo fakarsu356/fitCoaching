@@ -49,10 +49,14 @@ func (r *MealRepository) SumByDate(studentID uint, date time.Time) (entities.Mea
 	var Oil float64
 	var Kcal float64
 	var Protein float64
+	var Karb float64
+	var Lif float64
 	for _, meal := range meals {
 		Kcal = Kcal + meal.Kcal
 		Oil = Oil + meal.Oil
 		Protein = Protein + meal.Protein
+		Karb = Karb + meal.Karb
+		Lif = Lif + meal.Lif
 	}
 	meal := entities.Meal{
 		StudentID:   studentID,
@@ -61,6 +65,8 @@ func (r *MealRepository) SumByDate(studentID uint, date time.Time) (entities.Mea
 		Kcal:        Kcal,
 		Oil:         Oil,
 		Protein:     Protein,
+		Karb:        Karb,
+		Lif:         Lif,
 		Date:        date,
 	}
 

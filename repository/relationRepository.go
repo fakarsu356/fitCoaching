@@ -154,7 +154,7 @@ func (r *RelationRepository) GetCoachFromStudenId(studentId uint) (entities.Coac
 	var relation entities.Relation
 	var coach entities.Coach
 
-	dbRet := r.db.Model(entities.Relation{}).Where("student_id = ?", studentId).Find(&relation)
+	dbRet := r.db.Model(entities.Relation{}).Where("student_id = ? AND status = ?", studentId, entities.StatusActive).Find(&relation)
 	if dbRet.Error != nil {
 		return coach, dbRet.Error
 	}

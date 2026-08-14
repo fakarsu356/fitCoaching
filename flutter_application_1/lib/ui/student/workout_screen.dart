@@ -81,12 +81,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   /// Öğrencinin gerçekten yaptığı antrenmanlar (yeniden eskiye).
   ///
-  /// Koçun planları listelenmiyor: yapılan her seans zaten kaynak planına
+  /// Yapılmış planlar listelenmiyor: yapılan her seans zaten kaynak planına
   /// bağlı, planın kendisi ayrıca gösterilirse aynı antrenman iki kez görünür.
+  /// Kıyas da yalnızca bunlar üzerinden kurulur — koçun yazdığı hedef değerler
+  /// "önceki seans" sayılmaz.
   List<Workout> get _sessions {
     return [
       for (final workout in _history ?? const <Workout>[])
         if (workout.byStudent) workout,
+    ];
+  }
+
+  /// Koçun yazdığı, henüz yapılmamış programlar (yeniden eskiye).
+  ///
+  /// Üstteki bölüm bunlardan yalnızca birini gösteriyor; kalanı burada
+  /// görünmezse öğrenci kendisine kaç program yazıldığını hiç göremiyor.
+  List<Workout> get _pendingPlans {
+    final currentId = _plan?.id;
+    return [
+      for (final workout in _history ?? const <Workout>[])
+        if (!workout.byStudent && !workout.isDone && workout.id != currentId)
+          workout,
     ];
   }
 
@@ -119,11 +134,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         error: _error,
         data: _history,
         onRetry: _load,
+        skeleton: const _WorkoutSkeleton(),
         builder: (_) {
           final plan = _plan;
           final sessions = _sessions;
           final progress = WorkoutProgress(sessions);
           final recent = sessions.take(_visibleSessions).toList();
+          final pending = _pendingPlans;
 
           return RefreshIndicator(
             onRefresh: _load,
@@ -145,11 +162,30 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         'yazınca burada görünecek.',
                   )
                 else
-                  _PlanCard(
-                    plan: plan,
+                  _WorkoutCard(
+                    workout: plan,
                     previousSets: progress.previousSetsFor(plan),
                     onComplete: () => _completePlan(plan, progress),
                   ),
+                if (pending.isNotEmpty) ...[
+                  const SizedBox(height: AppSizes.gapLarge),
+                  const SectionTitle(
+                    'Sıradaki diğer programlar',
+                    subtitle: 'Koçunun yazdığı, henüz yapmadığın programlar.',
+                  ),
+                  for (final workout in pending) ...[
+                    _WorkoutCard(
+                      workout: workout,
+                      previousSets: progress.previousSetsFor(workout),
+                      // Reddedilmiş bir program doldurulamaz; düğme yalnızca
+                      // gerçekten bekleyen programlarda çıkar.
+                      onComplete: workout.isWaiting
+                          ? () => _completePlan(workout, progress)
+                          : null,
+                    ),
+                    const SizedBox(height: AppSizes.gapSmall),
+                  ],
+                ],
                 const SizedBox(height: AppSizes.gapLarge),
                 SectionTitle(
                   'Son antrenmanların',
@@ -168,8 +204,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   )
                 else
                   for (final session in recent) ...[
-                    _SessionCard(
-                      session: session,
+                    _WorkoutCard(
+                      workout: session,
                       previousSets: progress.previousSetsFor(session),
                     ),
                     const SizedBox(height: AppSizes.gapSmall),
@@ -184,11 +220,158 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 }
 
+/// Ekranın yüklenirken görünen hâli.
+///
+/// Bölüm başlıkları gerçek metinleriyle duruyor: yüklenirken de ekranın neyi
+/// göstereceği okunuyor, veri gelince yalnızca kartların içi değişiyor.
+class _WorkoutSkeleton extends StatelessWidget {
+  const _WorkoutSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(AppSizes.pagePadding),
+      children: const [
+        SectionTitle('Yapılacak antrenman'),
+        _WorkoutCardSkeleton(setRows: 3),
+        SizedBox(height: AppSizes.gapLarge),
+        SectionTitle('Son antrenmanların'),
+        _WorkoutCardSkeleton(setRows: 2),
+      ],
+    );
+  }
+}
+
+/// Antrenman kartının iskeleti: başlık satırı, ayraç ve set satırları.
+class _WorkoutCardSkeleton extends StatelessWidget {
+  const _WorkoutCardSkeleton({required this.setRows});
+
+  final int setRows;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Skeleton(
+                width: AppSizes.avatar,
+                height: AppSizes.avatar,
+                radius: AppSizes.radiusSmall,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Skeleton(width: 168, height: 15),
+                    SizedBox(height: 6),
+                    Skeleton(width: 128, height: 11),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSizes.gapSmall),
+              const Skeleton(
+                width: 68,
+                height: 22,
+                radius: AppSizes.radiusSmall,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSizes.gapSmall),
+          const Divider(height: 1, color: AppColors.border),
+          for (var i = 0; i < setRows; i++)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSizes.gapSmall),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: AppSizes.setLabelWidth,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Skeleton(width: 34, height: 11),
+                    ),
+                  ),
+                  // Align olmadan Expanded genişliği dayatır ve bloklar
+                  // satırın tamamını kaplar; metin izlenimi kaybolur.
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Skeleton(width: 120 + i * 28, height: 13),
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.gapSmall),
+                  const Skeleton(width: 58, height: 20),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Antrenmanın hareketlerinden okunur bir başlık üretir.
 String _workoutTitle(Workout workout) {
   final movements = workout.movements;
   return movements.isEmpty ? 'Antrenman' : movements.join(', ');
 }
+
+/// Kartın başlık ikonu ve rozeti kaydın kendi durumundan üretilir.
+///
+/// Sabit etiket yazılmıyor: aksi hâlde bekleyen bir program da "Tamamlandı"
+/// görünür ve ekran veriyle çelişir.
+({IconData icon, Color color, Color background, Widget pill}) _statusStyle(
+  String status,
+) {
+  final label = WorkoutStatus.label(status);
+  switch (status) {
+    case WorkoutStatus.done:
+      return (
+        icon: Icons.check_circle_outline,
+        color: AppColors.success,
+        background: AppColors.successSoft,
+        pill: StatusPill.success(label),
+      );
+    case WorkoutStatus.rejected:
+      return (
+        icon: Icons.cancel_outlined,
+        color: AppColors.danger,
+        background: AppColors.dangerSoft,
+        pill: StatusPill.danger(label),
+      );
+    case WorkoutStatus.waiting:
+      return (
+        icon: Icons.fitness_center,
+        color: AppColors.primary,
+        background: AppColors.primarySoft,
+        pill: StatusPill.warning(label),
+      );
+    default:
+      return (
+        icon: Icons.help_outline,
+        color: AppColors.textSecondary,
+        background: AppColors.surfaceMuted,
+        pill: StatusPill(label),
+      );
+  }
+}
+
+/// Kart alt başlığı: "Bugün · 3 hareket · 9 set".
+String _workoutSubtitle(Workout workout, int movementCount) {
+  return '${AppDate.relative(workout.date)} · $movementCount hareket '
+      '· ${workout.totalSets} set';
+}
+
+/// Seti olmayan antrenmanın uyarısı.
+///
+/// Backend setsiz bir programı da başarıyla döndürebiliyor; kart sessizce
+/// "0 set" göstermek yerine durumu açıkça yazıyor.
+const _emptySetsMessage =
+    'Bu programda hiç set kayıtlı değil. Koçunun program yazarken setleri '
+    'kaydedememiş olması muhtemel, koçuna haber ver.';
 
 /// İkon + açıklama satırından oluşan bilgi kartı.
 class _InfoCard extends StatelessWidget {
@@ -295,92 +478,77 @@ class _NoteBox extends StatelessWidget {
   }
 }
 
-/// Sıradaki antrenman: koç notu, set set plan ve tamamlama düğmesi.
-class _PlanCard extends StatelessWidget {
-  const _PlanCard({
-    required this.plan,
+/// Bir antrenman kaydı: tarihi, notu ve önceki seansa göre farklarıyla setleri.
+///
+/// Hem öğrencinin yaptığı seanslar hem de koçun bekleyen programları bu kartla
+/// çiziliyor. Bekleyen her programda tamamlama düğmesi bulunur — ayrı bir
+/// "plan kartı" tutulduğunda düğme yalnızca en üstteki programa konuyordu ve
+/// alttaki programlar doldurulamıyordu.
+class _WorkoutCard extends StatelessWidget {
+  const _WorkoutCard({
+    required this.workout,
     required this.previousSets,
-    required this.onComplete,
+    this.onComplete,
   });
 
-  final Workout plan;
+  final Workout workout;
   final Map<String, WorkoutSet> previousSets;
-  final VoidCallback onComplete;
+
+  /// Yalnızca doldurulabilir (bekleyen) programlarda verilir; yapılmış
+  /// seanslarda null.
+  final VoidCallback? onComplete;
 
   @override
   Widget build(BuildContext context) {
-    final byMovement = groupByMovement(plan.sets);
-    final note = plan.notes.trim();
+    final byMovement = groupByMovement(workout.sets);
+    final note = workout.notes.trim();
+    final style = _statusStyle(workout.status);
+
+    // Seti olmayan program tamamlanamaz: form boş açılır ve kaydedilirse
+    // geriye setsiz bir seans kaydı kalır.
+    final hasSets = workout.sets.isNotEmpty;
 
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardHeader(
-            icon: Icons.fitness_center,
-            iconColor: AppColors.primary,
-            iconBackground: AppColors.primarySoft,
-            title: _workoutTitle(plan),
-            subtitle:
-                '${AppDate.relative(plan.date)} · ${byMovement.length} hareket '
-                '· ${plan.totalSets} set',
-            trailing: const StatusPill.warning('Bekliyor'),
+            icon: style.icon,
+            iconColor: style.color,
+            iconBackground: style.background,
+            title: _workoutTitle(workout),
+            subtitle: _workoutSubtitle(workout, byMovement.length),
+            trailing: style.pill,
           ),
-          if (note.isNotEmpty) _NoteBox(label: 'Koç notu', note: note),
-          const SizedBox(height: AppSizes.gapSmall),
-          const Divider(height: 1, color: AppColors.border),
-          for (final entry in byMovement.entries)
-            _MovementSets(
-              name: entry.key,
-              sets: entry.value,
-              previousSets: previousSets,
+          if (note.isNotEmpty)
+            _NoteBox(
+              label: workout.byStudent ? 'Notun' : 'Koç notu',
+              note: note,
             ),
           const SizedBox(height: AppSizes.gapSmall),
-          ElevatedButton(
-            onPressed: onComplete,
-            child: const Text('Antrenmanı tamamla'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Yapılmış bir seans: tarihi, notu ve önceki seansa göre farklarıyla setleri.
-class _SessionCard extends StatelessWidget {
-  const _SessionCard({required this.session, required this.previousSets});
-
-  final Workout session;
-  final Map<String, WorkoutSet> previousSets;
-
-  @override
-  Widget build(BuildContext context) {
-    final byMovement = groupByMovement(session.sets);
-    final note = session.notes.trim();
-
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _CardHeader(
-            icon: Icons.check_circle_outline,
-            iconColor: AppColors.success,
-            iconBackground: AppColors.successSoft,
-            title: _workoutTitle(session),
-            subtitle:
-                '${AppDate.relative(session.date)} · ${byMovement.length} '
-                'hareket · ${session.totalSets} set',
-            trailing: const StatusPill.success('Tamamlandı'),
-          ),
-          if (note.isNotEmpty) _NoteBox(label: 'Notun', note: note),
-          const SizedBox(height: AppSizes.gapSmall),
           const Divider(height: 1, color: AppColors.border),
-          for (final entry in byMovement.entries)
-            _MovementSets(
-              name: entry.key,
-              sets: entry.value,
-              previousSets: previousSets,
+          if (!hasSets)
+            const Padding(
+              padding: EdgeInsets.only(top: AppSizes.gapSmall),
+              child: _InfoCard(
+                icon: Icons.error_outline,
+                message: _emptySetsMessage,
+              ),
+            )
+          else
+            for (final entry in byMovement.entries)
+              _MovementSets(
+                name: entry.key,
+                sets: entry.value,
+                previousSets: previousSets,
+              ),
+          if (onComplete != null) ...[
+            const SizedBox(height: AppSizes.gapSmall),
+            ElevatedButton(
+              onPressed: hasSets ? onComplete : null,
+              child: const Text('Antrenmanı tamamla'),
             ),
+          ],
         ],
       ),
     );

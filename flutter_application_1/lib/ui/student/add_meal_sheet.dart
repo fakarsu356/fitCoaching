@@ -37,6 +37,8 @@ class _AddMealSheetState extends State<_AddMealSheet> {
   final _kcal = TextEditingController();
   final _protein = TextEditingController();
   final _oil = TextEditingController();
+  final _karb = TextEditingController();
+  final _lif = TextEditingController();
   bool _busy = false;
   String? _error;
 
@@ -47,13 +49,35 @@ class _AddMealSheetState extends State<_AddMealSheet> {
     _kcal.dispose();
     _protein.dispose();
     _oil.dispose();
+    _karb.dispose();
+    _lif.dispose();
     super.dispose();
   }
 
-  /// Protein/yağ boş bırakılabilir; boşsa 0 gider.
+  /// Kalori dışındaki besin değerleri boş bırakılabilir; boşsa 0 gider.
   String? _optionalMacro(String? value, String label) {
     if (value == null || value.trim().isEmpty) return null;
     return Validators.doubleInRange(value, min: 0, max: 1000, label: label);
+  }
+
+  /// Gram cinsinden isteğe bağlı besin alanı. Dördü aynı kurallara tabi
+  /// olduğu için tek yerden üretiliyor.
+  Widget _macroField(
+    String label,
+    TextEditingController controller,
+  ) {
+    return Expanded(
+      child: LabeledField(
+        label: '$label (g)',
+        hint: 'İsteğe bağlı.',
+        child: TextFormField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(hintText: '0'),
+          validator: (value) => _optionalMacro(value, label),
+        ),
+      ),
+    );
   }
 
   Future<void> _submit() async {
@@ -69,6 +93,8 @@ class _AddMealSheetState extends State<_AddMealSheet> {
       kcal: Validators.toDouble(_kcal.text),
       protein: Validators.toDouble(_protein.text),
       oil: Validators.toDouble(_oil.text),
+      karb: Validators.toDouble(_karb.text),
+      lif: Validators.toDouble(_lif.text),
     );
 
     if (!mounted) return;
@@ -135,31 +161,18 @@ class _AddMealSheetState extends State<_AddMealSheet> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: LabeledField(
-                    label: 'Protein (g)',
-                    hint: 'İsteğe bağlı.',
-                    child: TextFormField(
-                      controller: _protein,
-                      keyboardType: numberKeyboard,
-                      decoration: const InputDecoration(hintText: '0'),
-                      validator: (value) => _optionalMacro(value, 'Protein'),
-                    ),
-                  ),
-                ),
+                _macroField('Protein', _protein),
                 const SizedBox(width: AppSizes.gapSmall),
-                Expanded(
-                  child: LabeledField(
-                    label: 'Yağ (g)',
-                    hint: 'İsteğe bağlı.',
-                    child: TextFormField(
-                      controller: _oil,
-                      keyboardType: numberKeyboard,
-                      decoration: const InputDecoration(hintText: '0'),
-                      validator: (value) => _optionalMacro(value, 'Yağ'),
-                    ),
-                  ),
-                ),
+                _macroField('Karbonhidrat', _karb),
+              ],
+            ),
+            const SizedBox(height: AppSizes.gap),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _macroField('Yağ', _oil),
+                const SizedBox(width: AppSizes.gapSmall),
+                _macroField('Lif', _lif),
               ],
             ),
             const SizedBox(height: AppSizes.gap),

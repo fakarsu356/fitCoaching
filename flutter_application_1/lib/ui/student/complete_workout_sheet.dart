@@ -93,6 +93,13 @@ class _CompleteWorkoutSheetState extends State<_CompleteWorkoutSheet> {
   }
 
   Future<void> _submit() async {
+    // Setsiz plan kaydedilirse geriye hiçbir hareketi olmayan bir seans kalır;
+    // sonraki kıyaslar da bu boş kayda takılır.
+    if (widget.plan.sets.isEmpty) {
+      setState(() => _error = 'Bu programda set yok, boş antrenman kaydedilemez');
+      return;
+    }
+
     final userId = context.read<Session>().userId;
     if (userId == null) {
       setState(() => _error = 'Oturum bilgisi okunamadı, tekrar giriş yap');
@@ -137,6 +144,7 @@ class _CompleteWorkoutSheetState extends State<_CompleteWorkoutSheet> {
   @override
   Widget build(BuildContext context) {
     final byMovement = groupByMovement(widget.plan.sets);
+    final hasSets = widget.plan.sets.isNotEmpty;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -156,11 +164,21 @@ class _CompleteWorkoutSheetState extends State<_CompleteWorkoutSheet> {
                   'Gerçekte yaptığın tekrar ve ağırlıkları gir; fark aynı '
                   'programın önceki seansına göre hesaplanıyor.',
             ),
-            for (final entry in byMovement.entries) ...[
-              const SizedBox(height: AppSizes.gapSmall),
-              Text(entry.key, style: Theme.of(context).textTheme.titleSmall),
-              for (final set in entry.value) _buildSetRow(set),
-            ],
+            if (!hasSets)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSizes.gapSmall),
+                child: Text(
+                  'Bu programda hiç set kayıtlı değil, doldurulacak bir şey '
+                  'yok. Koçun setleri ekleyince burada görünecek.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              )
+            else
+              for (final entry in byMovement.entries) ...[
+                const SizedBox(height: AppSizes.gapSmall),
+                Text(entry.key, style: Theme.of(context).textTheme.titleSmall),
+                for (final set in entry.value) _buildSetRow(set),
+              ],
             const SizedBox(height: AppSizes.gap),
             LabeledField(
               label: 'Not (isteğe bağlı)',
@@ -182,7 +200,7 @@ class _CompleteWorkoutSheetState extends State<_CompleteWorkoutSheet> {
             ],
             const SizedBox(height: AppSizes.gap),
             ElevatedButton(
-              onPressed: _busy ? null : _submit,
+              onPressed: (_busy || !hasSets) ? null : _submit,
               child: _busy
                   ? const SizedBox(
                       width: 20,

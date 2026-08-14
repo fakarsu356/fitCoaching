@@ -45,19 +45,21 @@ class AppColors {
 
 /// Ortak ölçüler — ekranlar arası tutarlılık için.
 ///
-/// Boşluklar Bootstrap'in spacer ölçeğine (4 / 8 / 16 / 24 / 48) oturur,
-/// yarıçaplar `--bs-border-radius` ailesine (4 / 6 / 8) karşılık gelir.
+/// Boşluklar Bootstrap'in spacer ölçeğine (4 / 8 / 16 / 24 / 48) oturur.
+/// Yarıçaplar Bootstrap'in ölçeğinden (4 / 6 / 8) bir kademe yukarı alındı;
+/// üç değer de aynı oranda büyütüldü ki kartın içindeki rozetle kartın kendisi
+/// arasındaki köşe hiyerarşisi korunsun.
 class AppSizes {
   const AppSizes._();
 
-  /// Kart yarıçapı (bs `border-radius-lg`).
-  static const double radius = 8;
+  /// Kart yarıçapı.
+  static const double radius = 14;
 
-  /// Alan, buton ve rozet yarıçapı (bs `border-radius`).
-  static const double radiusSmall = 6;
+  /// Alan, buton ve rozet yarıçapı.
+  static const double radiusSmall = 10;
 
-  /// En küçük yarıçap (bs `border-radius-sm`).
-  static const double radiusTiny = 4;
+  /// En küçük yarıçap.
+  static const double radiusTiny = 7;
 
   static const double pagePadding = 16;
   static const double gap = 16;
@@ -79,6 +81,18 @@ class AppSizes {
   /// "Set 1" etiketinin sabit genişliği — plan listesi ile tamamlama formundaki
   /// satırların hizası aynı olsun diye.
   static const double setLabelWidth = 52;
+}
+
+/// Animasyon süreleri — ekranlar arası geçişlerin aynı hızda olması için.
+class AppDurations {
+  const AppDurations._();
+
+  /// İskelet ile gerçek içerik arasındaki geçiş. Kısa tutuldu: uzun bir
+  /// çapraz geçiş, veri hazır olduğu hâlde ekranı yavaş hissettirir.
+  static const Duration swap = Duration(milliseconds: 220);
+
+  /// İskelet bloklarının nabzı (bir yön; gidiş-dönüş iki katı sürer).
+  static const Duration pulse = Duration(milliseconds: 850);
 }
 
 /// Bootstrap'in `box-shadow-sm` karşılığı — kartları zeminden ayıran yumuşak

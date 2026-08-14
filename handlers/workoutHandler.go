@@ -433,6 +433,11 @@ func (w *WorkoutS) CopyWorkout(c *gin.Context) {
 
 	workoutCopied, wErr := w.WorkoutRep.GetById(workoutId)
 
+	if !w.RelationRep.DoesCoachHaveStudent(coachId, studentId) {
+		banner := "bu öğrenci sana bağlı değil"
+		utils.Response(c, utils.ResponseS{Status: false, Banner: &banner})
+		return
+	}
 	if wErr != nil {
 		banner := "kayıt bulunamadı"
 		utils.Response(c, utils.ResponseS{
@@ -492,11 +497,7 @@ func (w *WorkoutS) CopyWorkout(c *gin.Context) {
 	}
 	var setsM []models.SetM
 
-	if !w.RelationRep.DoesCoachHaveStudent(coachId, studentId) {
-		banner := "bu öğrenci sana bağlı değil"
-		utils.Response(c, utils.ResponseS{Status: false, Banner: &banner})
-		return
-	}
+
 
 	for _, set := range sets {
 		var setM models.SetM
@@ -842,6 +843,7 @@ func (w *WorkoutS) GetWorkoutsByDate(c *gin.Context) {
 				Status: false,
 				Banner: nil,
 			})
+			return
 		}
 
 		var realWorkouts []models.WorkoutM
@@ -850,9 +852,10 @@ func (w *WorkoutS) GetWorkoutsByDate(c *gin.Context) {
 
 			sets, setsError := w.SetRepo.FindByWorkoutID(workout.ID)
 			if setsError != nil {
+				banner:=""
 				utils.Response(c, utils.ResponseS{
 					Status: false,
-					Banner: nil,
+					Banner: &banner,
 				})
 				return
 			}
@@ -891,25 +894,45 @@ func (w *WorkoutS) GetWorkoutsByDate(c *gin.Context) {
 func (w *WorkoutS) GetWorkoutDetail(c *gin.Context) {
 	userId, status := c.Get("user_id")
 	if status == false {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "user_id could not be found"})
+	banner:="user_id could not be found"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return
 		return
 	}
 	userID, ok := userId.(uint)
 	if ok == false {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "user_id could not be converted to uint"})
+		banner:="user_id could not be converted to uint"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return
 		return
 	}
 
 	role, roleStatus := c.Get("role")
 	if roleStatus == false {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "role could not be found"})
+		banner:="role could not be found"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return
 		return
 	}
 
 	Role, roleErr := role.(entities.Role)
 	if roleErr == false {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "role could not be converted to string"})
-		return
+		banner:="role could not be converted to string"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return
+		
 	}
 
 	body := map[string]interface{}{}
@@ -932,6 +955,7 @@ func (w *WorkoutS) GetWorkoutDetail(c *gin.Context) {
 			Status: false,
 			Banner: &banner,
 		})
+		return
 	}
 
 	studentID := uint(studentId)
@@ -1004,26 +1028,45 @@ func (w *WorkoutS) GetWorkoutDetail(c *gin.Context) {
 
 		status := w.RelationRep.DoesCoachHaveStudent(userID, studentID)
 		if status != true {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "kendi öğrencine istek at"})
-			return
+			banner:="kendi öğrencine istek at"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return
+			
 		}
 
 		workout, worksError := w.WorkoutRep.GetById(workoutID)
 		if worksError != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": worksError.Error()})
-			return
+			banner:=""
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return
+			
 		}
 		if workout.StudentID != studentID {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "başka öğrenciye erişemezsin"})
-			return
+			banner:="başka öğrenciye erişemezsin"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return
+			
 		}
 
 		var realWorkout models.WorkoutM
 
 		sets, setsError := w.SetRepo.FindByWorkoutID(workout.ID)
 		if setsError != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": setsError.Error()})
-			return
+			banner:=""
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return
 		}
 		realWorkout.Date = workout.Date
 		realWorkout.Notes = workout.Notes

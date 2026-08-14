@@ -49,16 +49,15 @@ func (d *DocumentS) AddDocument(c *gin.Context) {
 	userId := userID.(uint)
 
 	docType := entities.DocType(c.PostForm("type"))
-	if docType!=entities.CaochSertificate && docType!=entities.HealthResults&&
-	 docType!=entities.MealPictures&& docType!=entities.CV{
-			banner := "invalid type"
+	if docType != entities.CaochSertificate && docType != entities.HealthResults &&
+		docType != entities.MealPictures && docType != entities.CV {
+		banner := "invalid type"
 		utils.Response(c, utils.ResponseS{
 			Status: false,
 			Banner: &banner,
 		})
 		return
 	}
-	
 
 	form, formErr := c.MultipartForm()
 	if formErr != nil {

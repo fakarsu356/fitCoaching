@@ -217,11 +217,20 @@ class MetricTile extends StatelessWidget {
     required this.label,
     required this.value,
     this.unit,
+    this.loading = false,
   });
 
   final String label;
   final String value;
   final String? unit;
+
+  /// true iken etiket yerinde kalır, yalnızca rakam iskelete döner. Kutunun
+  /// tamamı iskelet olsaydı gün değiştirirken ekranın şablonu kaybolurdu.
+  final bool loading;
+
+  /// Rakam satırının sabit yüksekliği: iskelet ile gerçek değer aynı yeri
+  /// kaplasın, geçişte kutu büyüyüp küçülmesin.
+  static const double _valueHeight = 22;
 
   @override
   Widget build(BuildContext context) {
@@ -237,26 +246,36 @@ class MetricTile extends StatelessWidget {
         children: [
           Text(label, style: Theme.of(context).textTheme.labelSmall),
           const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Flexible(
-                child: Text(
-                  value,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+          SizedBox(
+            height: _valueHeight,
+            child: ContentSwap(
+              loading: loading,
+              skeleton: const Align(
+                alignment: Alignment.centerLeft,
+                child: Skeleton(width: 52, height: 18, color: AppColors.border),
               ),
-              if (unit != null) ...[
-                const SizedBox(width: 3),
-                Text(unit!, style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ],
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Flexible(
+                    child: Text(
+                      value,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  if (unit != null) ...[
+                    const SizedBox(width: 3),
+                    Text(unit!, style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -435,6 +454,103 @@ class SegmentedChoice<T> extends StatelessWidget {
   }
 }
 
+/// İçerik yüklenirken onun yerini tutan gri blok.
+///
+/// Ölçüler yerini tuttuğu metne göre verilir: iskelet ile gerçek içerik aynı
+/// yüksekliği kaplarsa geçişte satırlar yerinden oynamaz, ekran zıplamaz.
+class Skeleton extends StatefulWidget {
+  const Skeleton({
+    super.key,
+    this.width,
+    this.height = 12,
+    this.radius = AppSizes.radiusTiny,
+    this.color = AppColors.surfaceMuted,
+  });
+
+  /// Verilmezse bulunduğu alanı doldurur.
+  final double? width;
+  final double height;
+  final double radius;
+
+  /// Zaten gri bir kutunun içindeki iskeletler görünmez olmasın diye
+  /// (örn. [MetricTile]) bir tık koyu ton verilebilir.
+  final Color color;
+
+  @override
+  State<Skeleton> createState() => _SkeletonState();
+}
+
+class _SkeletonState extends State<Skeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: AppDurations.pulse,
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      // Tamamen kaybolmuyor: sönüp yeniden belirmesi "yükleniyor" hissini
+      // verirken blokların oluşturduğu şablon ekranda okunur kalıyor.
+      opacity: Tween<double>(begin: 1, end: 0.45).animate(_controller),
+      child: Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: widget.color,
+          borderRadius: BorderRadius.circular(widget.radius),
+        ),
+      ),
+    );
+  }
+}
+
+/// Aynı yerde duran iki görünüm arasında yumuşak geçiş: yüklenirken
+/// [skeleton], hazır olunca [child].
+///
+/// Bölüm başlıkları ve kart çerçeveleri bu sarmalayıcının dışında bırakılır;
+/// amaç şablonun sabit kalıp yalnızca içeriğin değişmesi.
+class ContentSwap extends StatelessWidget {
+  const ContentSwap({
+    super.key,
+    required this.loading,
+    required this.skeleton,
+    required this.child,
+  });
+
+  final bool loading;
+  final Widget skeleton;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: AppDurations.swap,
+      // Varsayılan geçiş eskiyi ve yeniyi üst üste bindirip ikisinin de
+      // yüksekliğini istediği için liste içinde zıplamaya yol açıyor; sadece
+      // yeni çocuğun boyutu esas alınsın diye layoutBuilder sadeleştirildi.
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          for (final entry in previous)
+            Positioned(left: 0, right: 0, top: 0, child: entry),
+          ?current,
+        ],
+      ),
+      child: KeyedSubtree(
+        key: ValueKey(loading),
+        child: loading ? skeleton : child,
+      ),
+    );
+  }
+}
+
 /// Yükleniyor / hata / veri durumlarını tek yerde yöneten liste sarmalayıcı.
 class AsyncContent<T> extends StatelessWidget {
   const AsyncContent({
@@ -444,6 +560,7 @@ class AsyncContent<T> extends StatelessWidget {
     required this.onRetry,
     required this.builder,
     this.data,
+    this.skeleton,
   });
 
   final bool loading;
@@ -452,23 +569,38 @@ class AsyncContent<T> extends StatelessWidget {
   final VoidCallback onRetry;
   final Widget Function(T data) builder;
 
+  /// Yüklenirken çizilecek iskelet. Verilmezse ortada dönen gösterge çıkar —
+  /// ekranın şablonu belli olmayan yerlerde (form, tek kart) hâlâ doğru olan
+  /// davranış bu.
+  final Widget? skeleton;
+
   @override
   Widget build(BuildContext context) {
+    final Widget content;
     if (loading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: CircularProgressIndicator(strokeWidth: 2.5),
-        ),
-      );
+      content =
+          skeleton ??
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+          );
+    } else if (error != null) {
+      content = ErrorState(message: error!, onRetry: onRetry);
+    } else if (data == null) {
+      content = const EmptyState(title: 'Kayıt bulunamadı');
+    } else {
+      content = builder(data as T);
     }
-    if (error != null) {
-      return ErrorState(message: error!, onRetry: onRetry);
-    }
-    if (data == null) {
-      return const EmptyState(title: 'Kayıt bulunamadı');
-    }
-    return builder(data as T);
+
+    return AnimatedSwitcher(
+      duration: AppDurations.swap,
+      child: KeyedSubtree(
+        key: ValueKey('$loading|${error != null}|${data == null}'),
+        child: content,
+      ),
+    );
   }
 }
 

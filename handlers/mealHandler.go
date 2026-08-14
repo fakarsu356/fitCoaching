@@ -74,6 +74,8 @@ func (w *MealS) AddMeal(c *gin.Context) {
 	kcal := body["kcal"].(float64)
 	protein := body["protein"].(float64)
 	oil := body["oil"].(float64)
+	karb, _ := body["karb"].(float64)
+	lif, _ := body["lif"].(float64)
 
 	meal := entities.Meal{
 		StudentID:   studentId,
@@ -82,7 +84,9 @@ func (w *MealS) AddMeal(c *gin.Context) {
 		Kcal:        kcal,
 		Protein:     protein,
 		Date:        time.Now(),
-		Oil:         oil}
+		Oil:         oil,
+		Karb:        karb,
+		Lif:         lif}
 	createErr := w.MealRep.Create(&meal)
 	if createErr != nil {
 		banner := "hata"

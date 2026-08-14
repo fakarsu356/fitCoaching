@@ -22,6 +22,10 @@ class DailyScreen extends StatefulWidget {
 }
 
 class _DailyScreenState extends State<DailyScreen> {
+  /// Bölüm başlığındaki aksiyon alanının sabit yüksekliği. Düğme, iskelet ve
+  /// boşluk aynı yeri kaplasın diye tek bir ölçüye bağlandı.
+  static const double _actionHeight = 40;
+
   DateTime _day = DateTime.now();
   List<Meal>? _meals;
 
@@ -30,6 +34,10 @@ class _DailyScreenState extends State<DailyScreen> {
   List<Sleep>? _sleepRecords;
   bool _loading = true;
   String? _error;
+
+  /// Art arda gün değiştirildiğinde önceki isteğin geç gelen cevabı ekrana
+  /// yazılmasın diye her yüklemeye sıra numarası veriliyor.
+  int _requestId = 0;
 
   bool get _isToday => AppDate.isSameDay(_day, DateTime.now());
 
@@ -40,6 +48,7 @@ class _DailyScreenState extends State<DailyScreen> {
   }
 
   Future<void> _load() async {
+    final requestId = ++_requestId;
     setState(() {
       _loading = true;
       _error = null;
@@ -53,7 +62,7 @@ class _DailyScreenState extends State<DailyScreen> {
     final mealResult = results[0];
     final sleepResult = results[1];
 
-    if (!mounted) return;
+    if (!mounted || requestId != _requestId) return;
     setState(() {
       _loading = false;
       if (!mealResult.ok) {
@@ -136,8 +145,81 @@ class _DailyScreenState extends State<DailyScreen> {
     return (current: null, previous: null);
   }
 
+  /// Bölüm başlığının sağındaki "Ekle" düğmesi.
+  ///
+  /// Yüklenirken düğme yerine iskelet konuyor: hem yarım veriyle işlem
+  /// açılmasın, hem de düğme sonradan belirip başlık satırını kaydırmasın.
+  /// Geçmiş günlerde ekleme zaten kapalı olduğu için hiç yer ayrılmıyor.
+  Widget? _addAction({required bool visible, required VoidCallback onPressed}) {
+    if (!_isToday) return null;
+
+    return SizedBox(
+      height: _actionHeight,
+      child: ContentSwap(
+        loading: _loading,
+        skeleton: const Center(
+          child: Skeleton(width: 64, height: 18, radius: AppSizes.radiusSmall),
+        ),
+        child: visible
+            ? TextButton.icon(
+                onPressed: onPressed,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Ekle'),
+              )
+            : const SizedBox.shrink(),
+      ),
+    );
+  }
+
+  /// Öğün bölümünün içeriği: hata, boş liste veya kayıtlar.
+  ///
+  /// Hata da bu bölümün içinde kalıyor; tüm ekran hata ekranına dönseydi gün
+  /// gezgini de kaybolur, kullanıcı başka bir güne geçemezdi.
+  Widget _mealsContent(List<Meal> meals) {
+    final error = _error;
+    if (error != null) {
+      return AppCard(
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, size: 20, color: AppColors.danger),
+            const SizedBox(width: AppSizes.gapSmall),
+            Expanded(
+              child: Text(error, style: Theme.of(context).textTheme.bodySmall),
+            ),
+            TextButton(onPressed: _load, child: const Text('Tekrar dene')),
+          ],
+        ),
+      );
+    }
+
+    if (meals.isEmpty) {
+      return EmptyState(
+        icon: Icons.restaurant_outlined,
+        title: _isToday ? 'Bugün henüz öğün yok' : 'Bu güne öğün girilmemiş',
+        description: _isToday
+            ? 'Yediklerini ekle ki koçun beslenmeni takip edebilsin.'
+            : null,
+      );
+    }
+
+    return Column(
+      children: [
+        for (final meal in meals) ...[
+          _MealTile(
+            meal: meal,
+            onDelete: _isToday ? () => _deleteMeal(meal) : null,
+          ),
+          const SizedBox(height: AppSizes.gapSmall),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final meals = _meals ?? const <Meal>[];
+    final sleep = _sleepOfDay;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Günlük'),
@@ -149,82 +231,54 @@ class _DailyScreenState extends State<DailyScreen> {
           ),
         ],
       ),
-      body: AsyncContent<List<Meal>>(
-        loading: _loading,
-        error: _error,
-        data: _meals,
-        onRetry: _load,
-        builder: (meals) {
-          final sleep = _sleepOfDay;
-          return RefreshIndicator(
-            onRefresh: _load,
-            color: AppColors.primary,
-            child: ListView(
-              padding: const EdgeInsets.all(AppSizes.pagePadding),
-              children: [
-                _DayPicker(
-                  day: _day,
-                  onPrevious: () => _changeDay(-1),
-                  onNext: _isToday ? null : () => _changeDay(1),
-                  onPick: _pickDay,
-                ),
-                const SizedBox(height: AppSizes.gap),
-                _DailyTotals(meals: meals),
-                const SizedBox(height: AppSizes.gapLarge),
-                SectionTitle(
-                  'Öğünler',
-                  subtitle: _isToday
-                      ? 'Bugün yediklerini kaydet.'
-                      : AppDate.relative(_day),
-                  action: _isToday
-                      ? TextButton.icon(
-                          onPressed: _addMeal,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Ekle'),
-                        )
-                      : null,
-                ),
-                if (meals.isEmpty)
-                  EmptyState(
-                    icon: Icons.restaurant_outlined,
-                    title: _isToday
-                        ? 'Bugün henüz öğün yok'
-                        : 'Bu güne öğün girilmemiş',
-                    description: _isToday
-                        ? 'Yediklerini ekle ki koçun beslenmeni takip '
-                              'edebilsin.'
-                        : null,
-                  )
-                else
-                  for (final meal in meals) ...[
-                    _MealTile(
-                      meal: meal,
-                      onDelete: _isToday ? () => _deleteMeal(meal) : null,
-                    ),
-                    const SizedBox(height: AppSizes.gapSmall),
-                  ],
-                const SizedBox(height: AppSizes.gap),
-                SectionTitle(
-                  'Uyku',
-                  subtitle: 'Gece uykun ve öncekiyle farkı.',
-                  action: _isToday && sleep.current == null
-                      ? TextButton.icon(
-                          onPressed: _addSleep,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Ekle'),
-                        )
-                      : null,
-                ),
-                _SleepCard(
-                  current: sleep.current,
-                  previous: sleep.previous,
-                  isToday: _isToday,
-                ),
-                const SizedBox(height: AppSizes.gapLarge),
-              ],
+      body: RefreshIndicator(
+        onRefresh: _load,
+        color: AppColors.primary,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSizes.pagePadding),
+          children: [
+            _DayPicker(
+              day: _day,
+              onPrevious: () => _changeDay(-1),
+              onNext: _isToday ? null : () => _changeDay(1),
+              onPick: _pickDay,
             ),
-          );
-        },
+            const SizedBox(height: AppSizes.gap),
+            _DailyTotals(meals: meals, loading: _loading),
+            const SizedBox(height: AppSizes.gapLarge),
+            SectionTitle(
+              'Öğünler',
+              subtitle: _isToday
+                  ? 'Bugün yediklerini kaydet.'
+                  : AppDate.relative(_day),
+              action: _addAction(visible: true, onPressed: _addMeal),
+            ),
+            ContentSwap(
+              loading: _loading,
+              skeleton: const _MealsSkeleton(),
+              child: _mealsContent(meals),
+            ),
+            const SizedBox(height: AppSizes.gap),
+            SectionTitle(
+              'Uyku',
+              subtitle: 'Gece uykun ve öncekiyle farkı.',
+              action: _addAction(
+                visible: sleep.current == null,
+                onPressed: _addSleep,
+              ),
+            ),
+            ContentSwap(
+              loading: _loading,
+              skeleton: const _SleepSkeleton(),
+              child: _SleepCard(
+                current: sleep.current,
+                previous: sleep.previous,
+                isToday: _isToday,
+              ),
+            ),
+            const SizedBox(height: AppSizes.gapLarge),
+          ],
+        ),
       ),
     );
   }
@@ -293,45 +347,157 @@ class _DayPicker extends StatelessWidget {
 /// Günün kalori/protein/yağ toplamı — görseldeki makro halkalarının
 /// Bootstrap karşılığı olarak üç metrik kutusu.
 class _DailyTotals extends StatelessWidget {
-  const _DailyTotals({required this.meals});
+  const _DailyTotals({required this.meals, this.loading = false});
 
   final List<Meal> meals;
 
+  /// Yüklenirken kutular ve etiketleri yerinde kalır, yalnızca rakamlar
+  /// iskelete döner.
+  final bool loading;
+
   @override
   Widget build(BuildContext context) {
-    double kcal = 0, protein = 0, oil = 0;
+    double kcal = 0, protein = 0, oil = 0, karb = 0, lif = 0;
     for (final meal in meals) {
       kcal += meal.kcal;
       protein += meal.protein;
       oil += meal.oil;
+      karb += meal.karb;
+      lif += meal.lif;
     }
 
-    return Row(
+    // Kalori ve protein üstte iki geniş kutuda; kalan üç değer altta. Beşini
+    // tek satıra sıkıştırmak rakamları okunmaz hâle getiriyordu.
+    return Column(
       children: [
-        Expanded(
-          child: MetricTile(
-            label: 'Kalori',
-            value: formatNumber(kcal),
-            unit: 'kcal',
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: MetricTile(
+                label: 'Kalori',
+                value: formatNumber(kcal),
+                unit: 'kcal',
+                loading: loading,
+              ),
+            ),
+            const SizedBox(width: AppSizes.gapSmall),
+            Expanded(
+              child: MetricTile(
+                label: 'Protein',
+                value: formatNumber(protein),
+                unit: 'g',
+                loading: loading,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: AppSizes.gapSmall),
-        Expanded(
-          child: MetricTile(
-            label: 'Protein',
-            value: formatNumber(protein),
-            unit: 'g',
-          ),
-        ),
-        const SizedBox(width: AppSizes.gapSmall),
-        Expanded(
-          child: MetricTile(
-            label: 'Yağ',
-            value: formatNumber(oil),
-            unit: 'g',
-          ),
+        const SizedBox(height: AppSizes.gapSmall),
+        Row(
+          children: [
+            Expanded(
+              child: MetricTile(
+                label: 'Karbonhidrat',
+                value: formatNumber(karb),
+                unit: 'g',
+                loading: loading,
+              ),
+            ),
+            const SizedBox(width: AppSizes.gapSmall),
+            Expanded(
+              child: MetricTile(
+                label: 'Yağ',
+                value: formatNumber(oil),
+                unit: 'g',
+                loading: loading,
+              ),
+            ),
+            const SizedBox(width: AppSizes.gapSmall),
+            Expanded(
+              child: MetricTile(
+                label: 'Lif',
+                value: formatNumber(lif),
+                unit: 'g',
+                loading: loading,
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+/// Öğün listesinin iskeleti: gerçek satırlarla aynı yükseklikte üç kart.
+///
+/// Sayı üçte sabit — kaç öğün geleceği bilinmiyor, ama liste alanının boş bir
+/// beyazlık yerine dolu görünmesi geçişi yumuşatıyor.
+class _MealsSkeleton extends StatelessWidget {
+  const _MealsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var i = 0; i < 3; i++) ...[
+          AppCard(
+            padding: const EdgeInsets.all(AppSizes.cardPaddingCompact),
+            child: Row(
+              children: [
+                const Skeleton(
+                  width: AppSizes.avatar,
+                  height: AppSizes.avatar,
+                  radius: AppSizes.radiusSmall,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Genişlikler kasten eşit değil: aynı boyda bloklar
+                      // tablo gibi görünüp metin izlenimi vermiyor.
+                      Skeleton(width: 120 + i * 24, height: 14),
+                      const SizedBox(height: 8),
+                      const Skeleton(width: 180, height: 11),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSizes.gapSmall),
+        ],
+      ],
+    );
+  }
+}
+
+/// Uyku kartının iskeleti — gerçek kartla aynı ikon kutusu ve iki satır.
+class _SleepSkeleton extends StatelessWidget {
+  const _SleepSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AppCard(
+      child: Row(
+        children: [
+          Skeleton(
+            width: AppSizes.avatar,
+            height: AppSizes.avatar,
+            radius: AppSizes.radiusSmall,
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Skeleton(width: 96, height: 16),
+                SizedBox(height: 8),
+                Skeleton(width: 132, height: 11),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -344,10 +510,13 @@ class _MealTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Kısaltmalar besin sırasıyla: protein, karbonhidrat, yağ, lif.
     final details = [
       '${formatNumber(meal.kcal)} kcal',
       'P ${formatNumber(meal.protein)} g',
+      'K ${formatNumber(meal.karb)} g',
       'Y ${formatNumber(meal.oil)} g',
+      'L ${formatNumber(meal.lif)} g',
       if (meal.date != null) AppDate.time(meal.date),
     ].join(' · ');
 
