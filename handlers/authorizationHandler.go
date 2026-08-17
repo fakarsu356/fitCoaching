@@ -7,6 +7,7 @@ import (
 	"fitcoaching/repository"
 	"fitcoaching/utils"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -36,11 +37,83 @@ func AuthCons(userRep repository.UserRepository, studentRep repository.StudentRe
 
 	return auth
 }
+func (h *Authorization) SendEMail(c *gin.Context) {
+	body := map[string]interface{}{}
+	bindErr := c.ShouldBindJSON(&body)
+	if bindErr != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+		})
+		return
+	}
+	email, ok := body["email"].(string)
+	if ok == false || email == "" {
+		banner := "email required"
+		utils.Response(c, utils.ResponseS{Status: false, Banner: &banner})
+		return
+	}
+	if len(email) > 254 { // RFC 5321 sınırı
+		banner := "email is too big"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 
+	validateErr := utils.ValidateEmail(email)
+	if validateErr != nil {
+		banner := "email is not valid"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	_, dbRet := h.UserRep.FindByEmail(email)
+	if dbRet == nil {
+		banner := "user already registered"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	sendErr := config.SendEmail(email)
+	if errors.Is(sendErr, config.ErrTooSoon) {
+		banner := "çok sık kod istediniz, lütfen biraz bekleyin"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	if sendErr != nil {
+		log.Printf("SendEMail failed (email=%s): %v", email, sendErr)
+		banner := "email could not send"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	banner := "email is sent"
+	utils.Response(c, utils.ResponseS{
+		Status: true,
+		Banner: &banner,
+	})
+}
 func (h *Authorization) KayitStudent(c *gin.Context) {
 
 	data := map[string]interface{}{}
-	c.ShouldBindJSON(&data)
+	bindErr := c.ShouldBindJSON(&data)
+	if bindErr != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+		})
+		return
+	}
 	username := data["name"].(string)
 	password := data["password"].(string)
 	passwordH := data["validatePassword"].(string)
@@ -210,6 +283,7 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 	speciality := c.PostForm("speciality")
 	gender := c.PostForm("gender")
 	CV, CVerr := c.FormFile("CV")
+	code := c.PostForm("code")
 
 	if CVerr != nil {
 		banner := "cv is not valid"
@@ -307,46 +381,40 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 		Gender:       entities.Genders(gender),
 	}
 
-	err := h.UserRep.Db.Transaction(func(tx *gorm.DB) error {
+	emailVerify := config.VerifyEmail(email, code)
+	if emailVerify == false {
+		banner := "code is not matching"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	errTransaction := h.UserRep.Db.Transaction(func(tx *gorm.DB) error {
 
 		dbR := tx.Create(&user)
 
 		if dbR.Error != nil {
-			banner := "hata"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-				Data:   nil,
-			})
+
 			return dbR.Error
 		}
 
 		coach := entities.Coach{
-			UserID:      user.ID,
-			User:        user, // butası doğrumu create edince doğru bir şekilde id li hali atanıyomu direkt
+			UserID: user.ID,
+			//		User:        user, // burası doğrumu create edince doğru bir şekilde id li hali atanıyomu direkt *düzenleme: burda user ı db kendi kednine ilişkilendiriyor
 			Speciality:  speciality,
 			MaxStudents: maxStudent,
 			Status:      entities.Free,
 		}
 		dbCoach := tx.Create(&coach)
 		if dbCoach.Error != nil {
-			banner := "hata"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-				Data:   nil,
-			})
+
 			return dbCoach.Error
 		}
 
 		form, formErr := c.MultipartForm()
 		if formErr != nil {
-			banner := "hata"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
-
 			return formErr
 		}
 		keybytes := []byte(os.Getenv("TOP_SECRET"))
@@ -355,21 +423,12 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 		for _, file := range files {
 
 			if file.Size > config.MaxFileSize {
-				banner := "file size too big"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
+
 				return errors.New("file size too big")
 			}
 
 			bytesf, errHH := file.Open()
 			if errHH != nil {
-				banner := "file cant open"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
 				return errHH
 			}
 
@@ -377,22 +436,11 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 
 			bytes, errH := io.ReadAll(bytesf)
 			if errH != nil {
-				banner := "dosya okunamadı"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
 				return errH
 			}
 
 			contentType := http.DetectContentType(bytes)
 			if !config.AllowedTypes[contentType] {
-				banner := "PDF, JPEG,JPG veya PNG kabul edilir"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-					Data:   nil,
-				})
 				return errors.New("file type is not allowed")
 			}
 			str := strconv.FormatUint(uint64(coach.UserID), 10)
@@ -401,12 +449,7 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 
 			hashedDoc, hashError := utils.Encrypt(bytes, keybytes)
 			if hashError != nil {
-				banner := "hata"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-					Data:   nil,
-				})
+
 				return hashError
 			}
 
@@ -422,32 +465,19 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 			}
 			docdb := tx.Create(&document)
 			if docdb.Error != nil {
-				banner := "hata"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-					Data:   nil,
-				})
+
 				return docdb.Error
 			}
 		}
 
 		if CV.Size > config.MaxFileSize {
-			banner := "file size too big"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
+
 			return errors.New("file size too big")
 		}
 
 		CVbytesf, CVerrH := CV.Open()
 		if CVerrH != nil {
-			banner := "file cant open"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
+
 			return CVerrH
 		}
 
@@ -455,22 +485,13 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 
 		CVbytes, CVerrH := io.ReadAll(CVbytesf)
 		if CVerrH != nil {
-			banner := "dosya okunamadı"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
+
 			return CVerrH
 		}
 
 		contentType := http.DetectContentType(CVbytes)
 		if !config.AllowedTypes[contentType] {
-			banner := "PDF, JPEG,JPG veya PNG kabul edilir"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-				Data:   nil,
-			})
+
 			return errors.New("file type is not allowed")
 		}
 		str := strconv.FormatUint(uint64(coach.UserID), 10)
@@ -479,12 +500,7 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 
 		hashedDoc, hashError := utils.Encrypt(CVbytes, keybytes)
 		if hashError != nil {
-			banner := "hata"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-				Data:   nil,
-			})
+
 			return hashError
 		}
 
@@ -501,19 +517,15 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 
 		CVdocdb := tx.Create(&CVdoc)
 		if CVdocdb.Error != nil {
-			banner := "hata"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-				Data:   nil,
-			})
+
 			return CVdocdb.Error
 		}
 		return nil
 	})
 
-	if err != nil {
-		banner := "hata"
+	if errTransaction != nil {
+		log.Printf("KayitCoach transaction failed (email=%s): %v", email, errTransaction)
+		banner := "documents could not created "
 		utils.Response(c, utils.ResponseS{
 			Status: false,
 			Banner: &banner,
@@ -536,6 +548,7 @@ func (h *Authorization) LogIn(c *gin.Context) {
 	bindErr := c.ShouldBindJSON(&data)
 	if bindErr != nil {
 		utils.Response(c, utils.ResponseS{})
+		return
 	}
 
 	password, passOK := data["password"].(string)
@@ -546,6 +559,7 @@ func (h *Authorization) LogIn(c *gin.Context) {
 			Status: false,
 			Banner: &banner,
 		})
+		return
 	}
 
 	errMail := utils.ValidateEmail(email)
@@ -559,7 +573,7 @@ func (h *Authorization) LogIn(c *gin.Context) {
 	}
 	errPassord := utils.ValidatePassword(password)
 	if errPassord != nil {
-		banner := "password is not valid"
+		banner := "email veya şifre hatalı"
 		utils.Response(c, utils.ResponseS{
 			Status: false,
 			Banner: &banner,
@@ -647,6 +661,7 @@ func (h *Authorization) RefreshAccessToken(c *gin.Context) {
 			Status: false,
 			Banner: nil,
 		})
+		return
 	}
 
 	compRefToken, tokErr := h.TokenRep.FindByToken(refreshTokenString)

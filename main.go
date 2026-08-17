@@ -89,6 +89,7 @@ func main() {
 	router.POST("/register/student", authandler.KayitStudent)
 	router.POST("/register/login", authandler.LogIn)
 	router.POST("/refresh", authandler.RefreshAccessToken)
+	router.POST("/register/sendMail", authandler.SendEMail)
 
 	router.POST("/coaches", utils.RequireRole("Student"), relationHandler.GetCoaches)
 	router.POST("/relations/request", utils.RequireRole("Student"), relationHandler.SendRequest)
