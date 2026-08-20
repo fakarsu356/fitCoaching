@@ -69,11 +69,22 @@ func (w *MealS) AddMeal(c *gin.Context) {
 		return
 	}
 
-	mealName := body["meal_name"].(string)
-	description := body["description"].(string)
-	kcal := body["kcal"].(float64)
-	protein := body["protein"].(float64)
-	oil := body["oil"].(float64)
+	// CLAUDE: kontrolsüz tip dönüşümleriydi; alan eksikse ya da tipi tutmuyorsa
+	// handler panic atıp 500 dönüyordu.
+	mealName, mealNameOk := body["meal_name"].(string)
+	description, descriptionOk := body["description"].(string)
+	kcal, kcalOk := body["kcal"].(float64)
+	protein, proteinOk := body["protein"].(float64)
+	oil, oilOk := body["oil"].(float64)
+	if mealNameOk == false || descriptionOk == false || kcalOk == false || proteinOk == false || oilOk == false {
+		banner := "meal_name, description, kcal, protein ve oil gönderilmeli"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+		return
+	}
 	karb, _ := body["karb"].(float64)
 	lif, _ := body["lif"].(float64)
 
@@ -164,7 +175,17 @@ func (w *MealS) GetStudentsMealsByDate(c *gin.Context) {
 		return
 	}
 
-	startStr := data["start_date"].(string)
+	// CLAUDE
+	startStr, startOk := data["start_date"].(string)
+	if startOk == false {
+		banner := "start_date gönderilmeli"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+		return
+	}
 	startDate, enDerr := time.Parse("2006-01-02 15:04:05", startStr)
 	if enDerr != nil {
 		banner := "hata"
@@ -176,7 +197,17 @@ func (w *MealS) GetStudentsMealsByDate(c *gin.Context) {
 		return
 	}
 
-	endStr := data["end_date"].(string)
+	// CLAUDE
+	endStr, endOk := data["end_date"].(string)
+	if endOk == false {
+		banner := "end_date gönderilmeli"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+		return
+	}
 	endDate, starTerr := time.Parse("2006-01-02 15:04:05", endStr)
 	if starTerr != nil {
 		banner := "hata"
@@ -199,7 +230,17 @@ func (w *MealS) GetStudentsMealsByDate(c *gin.Context) {
 	}
 
 	if Role == "Coach" {
-		studentID := data["student_id"].(float64)
+		// CLAUDE
+		studentID, studentOk := data["student_id"].(float64)
+		if studentOk == false {
+			banner := "student_id gönderilmeli"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
+			return
+		}
 		studentId := uint(studentID)
 
 		status := w.RelationRep.DoesCoachHaveStudent(userId, studentId)
@@ -324,7 +365,17 @@ func (w *MealS) GetMealSumDaily(c *gin.Context) {
 		})
 		return
 	}
-	dateStr := data["start_date"].(string)
+	// CLAUDE
+	dateStr, dateOk := data["start_date"].(string)
+	if dateOk == false {
+		banner := "start_date gönderilmeli"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+		return
+	}
 	date, enDerr := time.Parse("2006-01-02 15:04:05", dateStr)
 	if enDerr != nil {
 		c.JSON(400, gin.H{"error": enDerr.Error()})
@@ -347,7 +398,17 @@ func (w *MealS) GetMealSumDaily(c *gin.Context) {
 		return
 	}
 	if Role == "Coach" {
-		studentID := data["student_id"].(float64)
+		// CLAUDE
+		studentID, studentOk := data["student_id"].(float64)
+		if studentOk == false {
+			banner := "student_id gönderilmeli"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   nil,
+			})
+			return
+		}
 		studentId := uint(studentID)
 
 		status := w.RelationRep.DoesCoachHaveStudent(userId, studentId)

@@ -5,6 +5,7 @@ import (
 	"fitcoaching/config"
 	"fitcoaching/models/entities"
 	"fitcoaching/repository"
+	"fitcoaching/service"
 	"fitcoaching/utils"
 	"io"
 	"log"
@@ -12,7 +13,6 @@ import (
 	"os"
 	"strconv"
 	"time"
-
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -24,19 +24,23 @@ type Authorization struct {
 	CoachRep    repository.CoachRepository
 	DocumentRep repository.DocumentRepository
 	TokenRep    repository.TokenRepository
+	CodeRep     repository.VerificationCodeRepository
 }
 
 func AuthCons(userRep repository.UserRepository, studentRep repository.StudentRepository,
-	coachRep repository.CoachRepository, documentRep repository.DocumentRepository, tokenRep repository.TokenRepository) *Authorization {
+	coachRep repository.CoachRepository, documentRep repository.DocumentRepository,
+	tokenRep repository.TokenRepository, codeRep repository.VerificationCodeRepository) *Authorization {
 	auth := &Authorization{}
 	auth.UserRep = userRep
 	auth.StudentRep = studentRep
 	auth.CoachRep = coachRep
 	auth.DocumentRep = documentRep
 	auth.TokenRep = tokenRep
+	auth.CodeRep = codeRep
 
 	return auth
 }
+
 func (h *Authorization) SendEMail(c *gin.Context) {
 	body := map[string]interface{}{}
 	bindErr := c.ShouldBindJSON(&body)
@@ -47,20 +51,13 @@ func (h *Authorization) SendEMail(c *gin.Context) {
 		return
 	}
 	email, ok := body["email"].(string)
-	if ok == false || email == "" {
-		banner := "email required"
+	if ok == false || email == "" || len(email) > 254 { // RFC 5321 sınırı
+		banner := "email is not valid"
 		utils.Response(c, utils.ResponseS{Status: false, Banner: &banner})
 		return
 	}
-	if len(email) > 254 { // RFC 5321 sınırı
-		banner := "email is too big"
-		utils.Response(c, utils.ResponseS{
-			Status: false,
-			Banner: &banner,
-		})
-		return
-	}
-
+	// user_id istenmiyor: bu uç kayıt öncesinde çağrılıyor, ortada kullanıcı
+	// yok. Kod ile kayıt isteği `email` üzerinden eşleştiriliyor.
 	validateErr := utils.ValidateEmail(email)
 	if validateErr != nil {
 		banner := "email is not valid"
@@ -80,24 +77,46 @@ func (h *Authorization) SendEMail(c *gin.Context) {
 		return
 	}
 
-	sendErr := config.SendEmail(email)
-	if errors.Is(sendErr, config.ErrTooSoon) {
-		banner := "çok sık kod istediniz, lütfen biraz bekleyin"
-		utils.Response(c, utils.ResponseS{
-			Status: false,
-			Banner: &banner,
-		})
-		return
-	}
+	code, sendErr := service.SendEmail(email)
+
 	if sendErr != nil {
 		log.Printf("SendEMail failed (email=%s): %v", email, sendErr)
-		banner := "email could not send"
+		// Boş banner istemcide "Bir hata oluştu, tekrar deneyin" yedek metnine
+		// düşüyordu; kullanıcı ne yapacağını bilemiyordu.
+		banner := "doğrulama kodu gönderilemedi, birazdan tekrar dene"
 		utils.Response(c, utils.ResponseS{
 			Status: false,
 			Banner: &banner,
 		})
 		return
 	}
+	intCode, err := strconv.Atoi(code)
+	if err != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+		return
+	}
+	expired := time.Now().Add(5 * time.Minute)
+	Code := entities.Code{
+		Code:      intCode,
+		Email:     email,
+		Used:      false,
+		CreatedAt: time.Now(),
+		ExpiresAt: expired,
+	}
+
+	creatErr := h.CodeRep.Create(&Code)
+	if creatErr != nil {
+		banner := " could not create "
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
 	banner := "email is sent"
 	utils.Response(c, utils.ResponseS{
 		Status: true,
@@ -114,15 +133,36 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 		})
 		return
 	}
-	username := data["name"].(string)
-	password := data["password"].(string)
-	passwordH := data["validatePassword"].(string)
-	email := data["email"].(string)
-	age := int(data["age"].(float64))
-	bodyFatPercentage := data["bodyFatPercentage"].(float64)
-	bodyWeight := data["bodyWeight"].(float64)
-	bodyHeight := data["bodyHeight"].(float64)
-	gender := entities.Genders(data["gender"].(string))
+	// Alanlar `ok` ile okunuyor: eksik gelen bir anahtarda type assertion panik
+	// atıyordu, istek 500'e düşüyordu. Şimdi düzgün bir hata cevabı dönüyor.
+	username, usernameOk := data["name"].(string)
+	password, passwordOk := data["password"].(string)
+	passwordH, passwordHOk := data["validatePassword"].(string)
+	email, emailOk := data["email"].(string)
+	ageF, ageOk := data["age"].(float64)
+	bodyWeight, bodyWeightOk := data["bodyWeight"].(float64)
+	bodyHeight, bodyHeightOk := data["bodyHeight"].(float64)
+	genderS, genderOk := data["gender"].(string)
+	code, codeOk := data["code"].(string)
+
+	if !usernameOk || !passwordOk || !passwordHOk || !emailOk || !ageOk ||
+		!bodyWeightOk || !bodyHeightOk || !genderOk || !codeOk {
+		banner := "eksik veya hatalı alan gönderildi"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+			Data:   nil,
+		})
+		return
+	}
+
+	// Tek zorunlu olmayan alan; gelmezse 0 kalır.
+	// DİKKAT: aşağıdaki `:240` aralık kontrolü 0'ı da reddediyor, yani alan
+	// pratikte zorunlu. İstemci "boş bırakabilirsin" diyor, ikisi çelişiyor.
+	bodyFatPercentage, _ := data["bodyFatPercentage"].(float64)
+
+	age := int(ageF)
+	gender := entities.Genders(genderS)
 
 	if username == "" || password == "" || passwordH == "" || email == "" || age == 0 || bodyWeight == 0 || bodyHeight == 0 || gender == "" {
 		banner := "all places are required"
@@ -151,6 +191,30 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 			Status: false,
 			Banner: &banner,
 			Data:   nil,
+		})
+		return
+	}
+	intCode, convErr := strconv.Atoi(code)
+	if convErr != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+		return
+	}
+	realcode, codeErr := h.CodeRep.FindByEmail(email)
+	if codeErr != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+		return
+	}
+	if realcode.Code != intCode || realcode.ExpiresAt.Before(time.Now()) {
+		banner := " is not valid"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
 		})
 		return
 	}
@@ -263,6 +327,14 @@ func (h *Authorization) KayitStudent(c *gin.Context) {
 			Data:   nil,
 		})
 		return
+	}
+
+	// Kod ancak kayıt tamamlandıktan sonra yakılıyor: doğrulamadan hemen sonra
+	// işaretlenseydi, aşağıdaki kontrollerden birine takılan kullanıcı formu
+	// düzeltip tekrar denerken yeni kod istemek zorunda kalırdı.
+	if usedErr := h.CodeRep.MarkUsed(realcode.ID); usedErr != nil {
+		// Kayıt başarılı; kullanıcıya hata dönmenin anlamı yok, sadece iz bırak.
+		log.Printf("MarkUsed failed (email=%s, code_id=%d): %v", email, realcode.ID, usedErr)
 	}
 
 	banner := "successfully registered"
@@ -380,10 +452,24 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 		CreatedAt:    time.Now(),
 		Gender:       entities.Genders(gender),
 	}
-
-	emailVerify := config.VerifyEmail(email, code)
-	if emailVerify == false {
-		banner := "code is not matching"
+	intCode, convErr := strconv.Atoi(code)
+	if convErr != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+		return
+	}
+	realcode, codeErr := h.CodeRep.FindByEmail(email)
+	if codeErr != nil {
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: nil,
+		})
+		return
+	}
+	if realcode.Code != intCode || realcode.ExpiresAt.Before(time.Now()) {
+		banner := " is not valid"
 		utils.Response(c, utils.ResponseS{
 			Status: false,
 			Banner: &banner,
@@ -459,7 +545,7 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 				DocName:    file.Filename,
 				Size:       float64(file.Size),
 				Date:       time.Now(),
-				Doctype:    contentType,
+				DocType:    contentType,
 				File:       hashedDoc,
 				Type:       entities.CaochSertificate,
 			}
@@ -510,7 +596,7 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 			DocName:    CV.Filename,
 			Size:       float64(CV.Size),
 			Date:       time.Now(),
-			Doctype:    contentType,
+			DocType:    contentType,
 			File:       hashedDoc,
 			Type:       entities.CV,
 		}
@@ -531,6 +617,12 @@ func (h *Authorization) KayitCoach(c *gin.Context) {
 			Banner: &banner,
 		})
 		return
+	}
+
+	// Kod ancak kayıt işlemi (transaction) başarılı bittikten sonra yakılıyor;
+	// belge yüklemede geri alınan bir kayıt kodu da harcamasın.
+	if usedErr := h.CodeRep.MarkUsed(realcode.ID); usedErr != nil {
+		log.Printf("MarkUsed failed (email=%s, code_id=%d): %v", email, realcode.ID, usedErr)
 	}
 
 	banner := "Successfully registered"

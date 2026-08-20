@@ -8,6 +8,7 @@ import '../../services/auth_service.dart';
 import '../../services/services.dart';
 import '../widgets/common.dart';
 import 'auth_scaffold.dart';
+import 'email_verification_field.dart';
 
 /// config.MaxFileSize ile aynı: 5 MB. Sunucuya gitmeden önce burada uyarılır.
 const int _maxFileSize = 5 * 1024 * 1024;
@@ -37,6 +38,7 @@ class _CoachRegisterScreenState extends State<CoachRegisterScreen> {
   final _password = TextEditingController();
   final _passwordConfirm = TextEditingController();
   final _maxStudents = TextEditingController();
+  final _code = TextEditingController();
 
   String? _gender;
   String? _speciality;
@@ -54,6 +56,7 @@ class _CoachRegisterScreenState extends State<CoachRegisterScreen> {
     _password.dispose();
     _passwordConfirm.dispose();
     _maxStudents.dispose();
+    _code.dispose();
     super.dispose();
   }
 
@@ -130,6 +133,7 @@ class _CoachRegisterScreenState extends State<CoachRegisterScreen> {
       maxStudents: Validators.toInt(_maxStudents.text),
       speciality: _speciality!,
       gender: _gender!,
+      code: _code.text.trim(),
       cv: _cv!,
       certificates: _certificates,
     );
@@ -180,6 +184,12 @@ class _CoachRegisterScreenState extends State<CoachRegisterScreen> {
                   ),
                   validator: Validators.email,
                 ),
+              ),
+              formGap,
+              EmailVerificationField(
+                controller: _code,
+                emailOf: () => _email.text,
+                enabled: !_busy,
               ),
               formGap,
               LabeledField(

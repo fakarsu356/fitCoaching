@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/common.dart';
 import 'daily_screen.dart';
 import 'student_coach_screen.dart';
+import 'student_profile_screen.dart';
 import 'workout_screen.dart';
 
 /// Öğrencinin ana kabuğu: alt sekme çubuğu ile ekranlar arası geçiş.
@@ -32,13 +32,7 @@ class _StudentShellState extends State<StudentShell> {
           DailyScreen(),
           WorkoutScreen(),
           StudentCoachScreen(),
-          _ComingSoon(
-            title: 'Profil',
-            description:
-                'Vücut bilgilerin, belgelerin ve hesap ayarların burada '
-                'olacak. Bir sonraki adımda ekleniyor.',
-            icon: Icons.person_outline,
-          ),
+          StudentProfileScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -66,31 +60,6 @@ class _StudentShellState extends State<StudentShell> {
             label: 'Profil',
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Henüz yazılmamış sekmelerin geçici içeriği.
-class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({
-    required this.title,
-    required this.description,
-    required this.icon,
-  });
-
-  final String title;
-  final String description;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: EmptyState(
-        icon: icon,
-        title: 'Çok yakında',
-        description: description,
       ),
     );
   }

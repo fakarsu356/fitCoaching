@@ -95,7 +95,16 @@ func (r *RelationS) SendRequest(c *gin.Context) {
 		})
 		return
 	}
-	coachID := body["coach_id"].(float64)
+	// CLAUDE
+	coachID, coachOk := body["coach_id"].(float64)
+	if coachOk == false {
+		banner := "coach_id gönderilmeli"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 	coachId := uint(coachID)
 	coach, dbErrCoach := r.CoachRep.GetById(coachId)
 	if dbErrCoach != nil {
@@ -154,7 +163,15 @@ func (r *RelationS) ApproveRequest(c *gin.Context) {
 		})
 		return
 	}
-	studentID := body["student_id"].(float64)
+	studentID, okStudent := body["student_id"].(float64)
+	if okStudent != true {
+		banner := "hataR"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 	studentId := uint(studentID)
 
 	relation, dbErr := r.RelationRep.IsRelaitonWaiting(realCoachId, studentId)
@@ -236,7 +253,15 @@ func (r *RelationS) RejectRequest(c *gin.Context) {
 		return
 	}
 
-	studentID := body["student_id"].(float64)
+	studentID, okIdS := body["student_id"].(float64)
+	if okIdS != true {
+		banner := "hata R"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 	studentId := uint(studentID)
 
 	relation, dbErr := r.RelationRep.IsRelaitonWaiting(realCoachId, studentId)
@@ -278,7 +303,14 @@ func (r *RelationS) GetPendingRequests(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errdb.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"PendingRequests": requests})
+
+	// entities.Relation doğrudan dönmüyor: içindeki entities.User'ın json
+	// tag'i olmadığı için öğrencinin PasswordHash'i de serialize edilirdi.
+	response := make([]models.PendingRequestM, 0, len(requests))
+	for _, request := range requests {
+		response = append(response, models.NewPendingRequestM(request))
+	}
+	c.JSON(http.StatusOK, gin.H{"PendingRequests": response})
 }
 
 func (r *RelationS) GetMyStudents(c *gin.Context) {
@@ -297,7 +329,13 @@ func (r *RelationS) GetMyStudents(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"Students": students})
+
+	// Preload("User") ile gelen kullanıcı ham dönerse PasswordHash de gider.
+	response := make([]models.StudentM, 0, len(students))
+	for _, student := range students {
+		response = append(response, models.NewStudentM(student))
+	}
+	c.JSON(http.StatusOK, gin.H{"Students": response})
 }
 
 func (r *RelationS) GetMyCoach(c *gin.Context) {
@@ -493,20 +531,20 @@ func (r *RelationS) GetRequest(c *gin.Context) {
 		})
 		return
 	}
-	relation,dbErr:=r.RelationRep.FindStudentRequest(studentId)
-	if dbErr!= nil {
-		banner:="kayıt bulunamadı"
-		utils.Response(c,utils.ResponseS{
+	relation, dbErr := r.RelationRep.FindStudentRequest(studentId)
+	if dbErr != nil {
+		banner := "kayıt bulunamadı"
+		utils.Response(c, utils.ResponseS{
 			Status: false,
 			Banner: &banner,
 		})
 		return
 	}
-	banner:="success"
-	utils.Response(c,utils.ResponseS{
+	banner := "success"
+	utils.Response(c, utils.ResponseS{
 		Status: true,
 		Banner: &banner,
-		Data:relation.Status,
+		Data:   relation.Status,
 	})
 
 }

@@ -100,10 +100,17 @@ func (w *WorkoutS) AddWorkoutCoach(c *gin.Context) {
 		return
 	}
 
+	// CLAUDE: gövdedeki tarih yok sayılıp hep time.Now() yazılıyordu; koç ileri bir güne
+	// program yazamıyordu. Tarih gönderilmemişse bugüne düşüyor.
+	workoutDate := allData.Date
+	if workoutDate.IsZero() {
+		workoutDate = time.Now()
+	}
+
 	workout := entities.Workout{
 		CoachID:   coachId,
 		StudentID: studentId,
-		Date:      time.Now(),
+		Date:      workoutDate, // CLAUDE
 		Notes:     allData.Note,
 		Status:    entities.WorkoutWaiting,
 		Generator: false, // eğer false ise koç
@@ -234,7 +241,6 @@ func (w *WorkoutS) GetTodayPlan(c *gin.Context) {
 		Banner: &banner,
 		Data:   workoutM,
 	})
-	return
 }
 
 func (w *WorkoutS) SaveStudentsWorkout(c *gin.Context) {
@@ -413,21 +419,23 @@ func (w *WorkoutS) CopyWorkout(c *gin.Context) {
 
 	workoutID, ok := body["workout_id"].(float64)
 	if ok == false {
-		banner := "hata"
+		banner := "workout_id gönderilmeli" // CLAUDE: banner yazılıp return edilmiyordu, akış devam ediyordu
 		utils.Response(c, utils.ResponseS{
 			Status: false,
 			Banner: &banner,
 		})
+		return
 	}
 	workoutId := uint(workoutID)
 
 	studentID, okS := body["student_id"].(float64)
 	if okS == false {
-		banner := "hata"
+		banner := "student_id gönderilmeli" // CLAUDE: eksik return eklendi
 		utils.Response(c, utils.ResponseS{
 			Status: false,
 			Banner: &banner,
 		})
+		return
 	}
 	studentId := uint(studentID)
 
@@ -496,8 +504,6 @@ func (w *WorkoutS) CopyWorkout(c *gin.Context) {
 		return
 	}
 	var setsM []models.SetM
-
-
 
 	for _, set := range sets {
 		var setM models.SetM
@@ -680,8 +686,12 @@ func (w *WorkoutS) GetCoachWorkouts(c *gin.Context) {
 		datum.ID = workout.ID
 		datum.Date = workout.Date
 		datum.Sets = setsM
-		datum.Generator = false
-		datum.Status = entities.WorkoutWaiting
+		// CLAUDE: sabit değerler yazılıyordu, öğrencinin bitirdiği antrenmanlar da koç
+		// listesinde "bekliyor" görünüyordu. Kaydın kendi değerleri kullanılıyor.
+		datum.Generator = workout.Generator
+		datum.Status = workout.Status
+		datum.CoachID = workout.CoachID
+		datum.SourcePlanID = workout.SourcePlanID
 		datum.StudentID = workout.StudentID
 		datum.Notes = workout.Notes
 		data = append(data, datum)
@@ -708,8 +718,18 @@ func (w *WorkoutS) GetWorkoutsByDate(c *gin.Context) {
 		return
 	}
 
-	startdate := data["start_date"].(string)
-	enddate := data["end_date"].(string)
+	// CLAUDE: kontrolsüz tip dönüşümüydü. Alanlar gövdede yoksa ya da string değilse
+	// handler panic atıp 500 döndürüyordu.
+	startdate, okStart := data["start_date"].(string)
+	enddate, okEnd := data["end_date"].(string)
+	if okStart == false || okEnd == false {
+		banner := "start_date ve end_date gönderilmeli"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 
 	startDate, err1 := time.Parse("2006-01-02 15:04:05", startdate)
 	endDate, err2 := time.Parse("2006-01-02 15:04:05", enddate)
@@ -852,7 +872,7 @@ func (w *WorkoutS) GetWorkoutsByDate(c *gin.Context) {
 
 			sets, setsError := w.SetRepo.FindByWorkoutID(workout.ID)
 			if setsError != nil {
-				banner:=""
+				banner := ""
 				utils.Response(c, utils.ResponseS{
 					Status: false,
 					Banner: &banner,
@@ -894,45 +914,45 @@ func (w *WorkoutS) GetWorkoutsByDate(c *gin.Context) {
 func (w *WorkoutS) GetWorkoutDetail(c *gin.Context) {
 	userId, status := c.Get("user_id")
 	if status == false {
-	banner:="user_id could not be found"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
-				return
+		banner := "user_id could not be found"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
+
 	}
 	userID, ok := userId.(uint)
 	if ok == false {
-		banner:="user_id could not be converted to uint"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
-				return
+		banner := "user_id could not be converted to uint"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
+
 	}
 
 	role, roleStatus := c.Get("role")
 	if roleStatus == false {
-		banner:="role could not be found"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
-				return
+		banner := "role could not be found"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
+
 	}
 
 	Role, roleErr := role.(entities.Role)
 	if roleErr == false {
-		banner:="role could not be converted to string"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
-				return
-		
+		banner := "role could not be converted to string"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+
 	}
 
 	body := map[string]interface{}{}
@@ -995,7 +1015,7 @@ func (w *WorkoutS) GetWorkoutDetail(c *gin.Context) {
 		realWorkout.Notes = workout.Notes
 		realWorkout.StudentID = workout.StudentID
 		realWorkout.ID = workoutID
-		realWorkout.Status = entities.WorkoutDone
+		realWorkout.Status = workout.Status // CLAUDE: sabit WorkoutDone yazılıyordu
 		realWorkout.SourcePlanID = workout.SourcePlanID
 		realWorkout.Generator = workout.Generator
 		realWorkout.CoachID = workout.CoachID
@@ -1028,51 +1048,51 @@ func (w *WorkoutS) GetWorkoutDetail(c *gin.Context) {
 
 		status := w.RelationRep.DoesCoachHaveStudent(userID, studentID)
 		if status != true {
-			banner:="kendi öğrencine istek at"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
-				return
-			
+			banner := "kendi öğrencine istek at"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
+			return
+
 		}
 
 		workout, worksError := w.WorkoutRep.GetById(workoutID)
 		if worksError != nil {
-			banner:=""
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
-				return
-			
+			banner := ""
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
+			return
+
 		}
 		if workout.StudentID != studentID {
-			banner:="başka öğrenciye erişemezsin"
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
-				return
-			
+			banner := "başka öğrenciye erişemezsin"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
+			return
+
 		}
 
 		var realWorkout models.WorkoutM
 
 		sets, setsError := w.SetRepo.FindByWorkoutID(workout.ID)
 		if setsError != nil {
-			banner:=""
-				utils.Response(c, utils.ResponseS{
-					Status: false,
-					Banner: &banner,
-				})
-				return
+			banner := ""
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
+			return
 		}
 		realWorkout.Date = workout.Date
 		realWorkout.Notes = workout.Notes
 		realWorkout.StudentID = workout.StudentID
 		realWorkout.ID = workoutID
-		realWorkout.Status = entities.WorkoutDone
+		realWorkout.Status = workout.Status // CLAUDE: sabit WorkoutDone yazılıyordu
 		realWorkout.SourcePlanID = workout.SourcePlanID
 		realWorkout.Generator = workout.Generator
 		realWorkout.CoachID = workout.CoachID

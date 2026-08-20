@@ -144,7 +144,7 @@ func (d *DocumentS) AddDocument(c *gin.Context) {
 			DocName:    file.Filename,
 			Size:       float64(file.Size),
 			Date:       time.Now(),
-			Doctype:    contentType,
+			DocType:    contentType,
 			File:       hashedDoc,
 			Type:       docType,
 		}
@@ -245,8 +245,7 @@ func (d *DocumentS) GetDocument(c *gin.Context) {
 		})
 		return
 	}
-	fmt.Println(uploaderRole)
-	fmt.Println(role)
+
 	if uploaderRole == "Student" && role == "Coach" {
 		status := d.RelationRep.IsRelaitonActive(userId, uploaderId)
 		if status != true {
@@ -374,11 +373,37 @@ func (d *DocumentS) GetDocument(c *gin.Context) {
 			Data:   docByts,
 		})
 	}
-	if uploaderRole == "Coach" && role == "Student" { // koçun verilerini görebilsin mi çocuk
-		banner := "koçun verisini görüntüleyemezsin"
+	if uploaderRole == "Coach" && role == "Student" {
+		// CLAUDE: eskiden burası koşulsuz "koçun verisini görüntüleyemezsin" diyordu.
+		// Öğrenci koçun yalnızca sertifikalarını açabilir; CV'si ve diğer
+		// belgeleri koça özel kalır.
+		if doc.Type != entities.CaochSertificate {
+			banner := "koçun bu belgesini görüntüleyemezsin"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+			})
+			return
+		}
+
+		keyByte := []byte(os.Getenv("TOP_SECRET"))
+
+		temp, decryptErr := utils.Decrypt(doc.File, keyByte)
+		if decryptErr != nil {
+			banner := "hata"
+			utils.Response(c, utils.ResponseS{
+				Status: false,
+				Banner: &banner,
+				Data:   decryptErr.Error(),
+			})
+			return
+		}
+
+		banner := "success"
 		utils.Response(c, utils.ResponseS{
-			Status: false,
+			Status: true,
 			Banner: &banner,
+			Data:   temp,
 		})
 	}
 
@@ -445,7 +470,8 @@ func (d *DocumentS) GetDocumentList(c *gin.Context) {
 			temp := DocumentListItem{
 				ID:      doc.ID,
 				DocName: doc.DocName,
-				DocType: doc.Doctype,
+				DocType: doc.DocType,
+				Type:    doc.Type, // CLAUDE
 				Date:    doc.Date,
 			}
 			DocumentList = append(DocumentList, temp)
@@ -458,26 +484,27 @@ func (d *DocumentS) GetDocumentList(c *gin.Context) {
 		})
 	}
 	if role == "Coach" {
+		// CLAUDE: student_id eskiden zorunluydu, koç kendi belgelerini listeleyemiyordu.
+		// student_id isteğe bağlı: gönderilmezse koç kendi belgelerini listeler,
+		// gönderilirse öğrencisinin belgelerini — o zaman da aralarında aktif bir
+		// ilişki olması gerekiyor.
+		uploaderId := userId
 		studentID, okStudent := body["student_id"].(float64)
-		if okStudent == false {
-			banner := "student_id gönderilmeli"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
-			return
+		if okStudent {
+			studentId := uint(studentID)
+			status := d.RelationRep.IsRelaitonActive(userId, studentId)
+			if status != true {
+				banner := "there is no relation between these 2"
+				utils.Response(c, utils.ResponseS{
+					Status: false,
+					Banner: &banner,
+				})
+				return
+			}
+			uploaderId = studentId
 		}
-		studentId := uint(studentID)
-		status := d.RelationRep.IsRelaitonActive(userId, studentId)
-		if status != true {
-			banner := "there is no relation between these 2"
-			utils.Response(c, utils.ResponseS{
-				Status: false,
-				Banner: &banner,
-			})
-			return
-		}
-		docs, docsErr := d.DocumentRep.FindByUploader(studentId)
+
+		docs, docsErr := d.DocumentRep.FindByUploader(uploaderId)
 		if docsErr != nil {
 			banner := "hata"
 			utils.Response(c, utils.ResponseS{
@@ -494,7 +521,8 @@ func (d *DocumentS) GetDocumentList(c *gin.Context) {
 			temp := DocumentListItem{
 				ID:      doc.ID,
 				DocName: doc.DocName,
-				DocType: doc.Doctype,
+				DocType: doc.DocType,
+				Type:    doc.Type, // CLAUDE
 				Date:    doc.Date,
 			}
 			DocumentList = append(DocumentList, temp)
@@ -506,11 +534,22 @@ func (d *DocumentS) GetDocumentList(c *gin.Context) {
 			Data:   DocumentList,
 		})
 	}
+	if role != "Student" && role != "Coach" {
+		// CLAUDE: eklendi.
+		// Rol ikisinden biri değilse fonksiyon cevap yazmadan bitiyordu ve
+		// istemci boş gövde alıyordu.
+		banner := "tanımsız rol"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+	}
 }
 
 type DocumentListItem struct {
 	ID      uint
 	DocName string
-	DocType string
+	DocType string           // MIME türü — image/png, application/pdf
+	Type    entities.DocType // CLAUDE: belgenin ne olduğu — CV, Sertificate, LabResults...
 	Date    time.Time
 }

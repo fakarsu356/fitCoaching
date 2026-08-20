@@ -237,7 +237,7 @@ class _DailyScreenState extends State<DailyScreen> {
         child: ListView(
           padding: const EdgeInsets.all(AppSizes.pagePadding),
           children: [
-            _DayPicker(
+            DayPicker(
               day: _day,
               onPrevious: () => _changeDay(-1),
               onNext: _isToday ? null : () => _changeDay(1),
@@ -279,66 +279,6 @@ class _DailyScreenState extends State<DailyScreen> {
             const SizedBox(height: AppSizes.gapLarge),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Bootstrap pagination görünümünde gün gezgini: ‹ 14 Ağustos 2026 ›
-class _DayPicker extends StatelessWidget {
-  const _DayPicker({
-    required this.day,
-    required this.onPrevious,
-    required this.onPick,
-    this.onNext,
-  });
-
-  final DateTime day;
-  final VoidCallback onPrevious;
-  final VoidCallback? onNext;
-  final VoidCallback onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            tooltip: 'Önceki gün',
-            onPressed: onPrevious,
-          ),
-          Expanded(
-            child: InkWell(
-              onTap: onPick,
-              borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.calendar_month_outlined,
-                      size: 18,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      AppDate.relative(day),
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            tooltip: 'Sonraki gün',
-            onPressed: onNext,
-          ),
-        ],
       ),
     );
   }

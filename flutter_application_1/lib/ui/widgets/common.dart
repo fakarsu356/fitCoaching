@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/date_fmt.dart';
 import '../../core/theme.dart';
 
 /// Bootstrap 5 `.card` karşılığı: beyaz zemin, ince kenarlık ve yumuşak gölge.
@@ -659,3 +660,68 @@ Future<bool> confirmDialog(
   );
   return result ?? false;
 }
+
+/// Bootstrap pagination görünümünde gün gezgini: ‹ 14 Ağustos 2026 ›
+///
+/// Öğrencinin günlük ekranı ile koçun öğrenci detayı aynı gezgini kullanıyor;
+/// ok/tarih ölçüleri iki tarafta ayrışmasın diye burada tek nüsha duruyor.
+class DayPicker extends StatelessWidget {
+  const DayPicker({
+    super.key,
+    required this.day,
+    required this.onPrevious,
+    required this.onPick,
+    this.onNext,
+  });
+
+  final DateTime day;
+  final VoidCallback onPrevious;
+  final VoidCallback? onNext;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            tooltip: 'Önceki gün',
+            onPressed: onPrevious,
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: onPick,
+              borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.calendar_month_outlined,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      AppDate.relative(day),
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            tooltip: 'Sonraki gün',
+            onPressed: onNext,
+          ),
+        ],
+      ),
+    );
+  }
+}
+

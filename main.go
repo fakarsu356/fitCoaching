@@ -7,6 +7,7 @@ import (
 	"fitcoaching/repository"
 	"fitcoaching/utils"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func main() {
 	time.Local = loc
 	fmt.Println(time.Now())
 	db := config.ConnectDatabase()
-	db.AutoMigrate(
+	fatal := db.AutoMigrate(
 		&entities.User{},
 		&entities.Coach{},
 		&entities.Student{},
@@ -36,8 +37,12 @@ func main() {
 		&entities.Relation{},
 		&entities.Rating{},
 		&entities.RefreshToken{},
+		&entities.Code{},
 	)
-
+	if fatal != nil {
+		log.Fatal(fatal)
+		return
+	}
 	userRepo := repository.UserCons(db)
 	coachRepo := repository.CoachCons(db)
 	studentRepo := repository.StudentCons(db)
@@ -49,8 +54,9 @@ func main() {
 	mealRepo := repository.MealCons(db)
 	documentRepo := repository.DocumentCons(db)
 	refreshTokenRepo := repository.RefreshTokenCons(db)
+	codeRepo := repository.VerificationCodeCons(db)
 
-	authandler := handlers.AuthCons(userRepo, studentRepo, coachRepo, documentRepo, refreshTokenRepo)
+	authandler := handlers.AuthCons(userRepo, studentRepo, coachRepo, documentRepo, refreshTokenRepo, codeRepo)
 	relationHandler := handlers.RelationCons(userRepo, studentRepo, coachRepo, documentRepo, relationRepo)
 	workoutHandler := handlers.WokrputCons(userRepo, studentRepo, coachRepo, relationRepo, workoutRepo, setRepo)
 	mealHandler := handlers.MealCons(userRepo, studentRepo, coachRepo, relationRepo, mealRepo)
@@ -70,12 +76,10 @@ func main() {
 
 		for _, relation := range relations {
 			relation.Status = entities.StatusExpired
-			fmt.Println(relation.Status)
 			updatErr := relationRepo.Update(&relation)
 			if updatErr != nil {
 				fmt.Println(updatErr)
 				return
-
 			}
 		}
 	})
@@ -90,7 +94,7 @@ func main() {
 	router.POST("/register/login", authandler.LogIn)
 	router.POST("/refresh", authandler.RefreshAccessToken)
 	router.POST("/register/sendMail", authandler.SendEMail)
-
+	// SERVİCE OLACAK
 	router.POST("/coaches", utils.RequireRole("Student"), relationHandler.GetCoaches)
 	router.POST("/relations/request", utils.RequireRole("Student"), relationHandler.SendRequest)
 	router.POST("/relations/pending", utils.RequireRole("Coach"), relationHandler.GetPendingRequests)

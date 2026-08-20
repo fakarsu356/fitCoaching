@@ -5,7 +5,7 @@ senden istediklerim şunalr bu front karmaşık olmasın sade olsun ve böyle ne
 
 
 
-
+VE EĞER BAKCENDDE BİRŞEY DEĞİŞTİRİRSEN // CLAUDE COMMENTİNİ KOY 
 
 ![alt text](image.png)
 

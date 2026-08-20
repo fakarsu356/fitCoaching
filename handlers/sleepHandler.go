@@ -53,8 +53,17 @@ func (s *SleepS) AddSleep(c *gin.Context) {
 		return
 	}
 
-	bedtime := body["bed_time"].(string)
-	waketime := body["wake_time"].(string)
+	// CLAUDE: kontrolsüz tip dönüşümleriydi; alanlar eksikse panic atıyordu.
+	bedtime, bedOk := body["bed_time"].(string)
+	waketime, wakeOk := body["wake_time"].(string)
+	if bedOk == false || wakeOk == false {
+		banner := "bed_time ve wake_time gönderilmeli"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 
 	bedTime, bedErr := time.Parse("2006-01-02 15:04:05", bedtime)
 	wakeTime, wakeError := time.Parse("2006-01-02 15:04:05", waketime)

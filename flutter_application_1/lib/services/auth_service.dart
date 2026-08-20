@@ -33,6 +33,18 @@ class AuthService {
 
   final ApiClient _client;
 
+  /// POST /register/sendMail — kayıt öncesi e-posta doğrulama kodu gönderir.
+  ///
+  /// Kayıttan önce çalıştığı için oturum yok; `authenticated: false`.
+  Future<ApiResult<void>> sendVerificationCode(String email) async {
+    final result = await _client.post(
+      '/register/sendMail',
+      authenticated: false,
+      body: {'email': email},
+    );
+    return ApiResult<void>(ok: result.ok, message: result.message);
+  }
+
   /// POST /register/student — JSON gövde.
   Future<ApiResult<void>> registerStudent({
     required String name,
@@ -44,6 +56,7 @@ class AuthService {
     required double bodyWeight,
     required double bodyHeight,
     required String gender,
+    required String code,
   }) async {
     final result = await _client.post(
       '/register/student',
@@ -60,6 +73,9 @@ class AuthService {
         'bodyWeight': bodyWeight,
         'bodyHeight': bodyHeight,
         'gender': gender,
+        // Handler alanları `ok` kontrolü olmadan okuduğu için eksik gönderilen
+        // her anahtar sunucuda panik çıkarıyor; boş da olsa yollanmalı.
+        'code': code,
       },
     );
     return ApiResult<void>(ok: result.ok, message: result.message);
@@ -77,6 +93,7 @@ class AuthService {
     required int maxStudents,
     required String speciality,
     required String gender,
+    required String code,
     required UploadFile cv,
     List<UploadFile> certificates = const [],
   }) async {
@@ -96,6 +113,7 @@ class AuthService {
         'max_students': maxStudents.toString(),
         'speciality': speciality,
         'gender': gender,
+        'code': code,
       },
       files: certificateFiles,
       filesFieldName: 'certificates',

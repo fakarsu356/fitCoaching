@@ -194,6 +194,7 @@ class DocumentItem {
     required this.id,
     required this.docName,
     required this.mimeType,
+    this.type = '',
     this.date,
   });
 
@@ -202,16 +203,24 @@ class DocumentItem {
 
   /// Sunucudaki `DocType` alanı MIME type tutuyor (örn. application/pdf).
   final String mimeType;
+
+  /// Sunucudaki `Type` alanı — belgenin ne olduğu (`CV`, `Sertificate`, ...).
+  /// Bkz. [DocumentType].
+  final String type;
   final DateTime? date;
 
   bool get isImage => mimeType.startsWith('image/');
   bool get isPdf => mimeType == 'application/pdf';
+
+  /// "Sertifika", "Tahlil / rapor" gibi okunabilir tür etiketi.
+  String get typeLabel => DocumentType.label(type);
 
   factory DocumentItem.fromJson(Map<String, dynamic> json) {
     return DocumentItem(
       id: asInt(pick(json, ['ID', 'id'])),
       docName: asString(pick(json, ['DocName', 'doc_name'])),
       mimeType: asString(pick(json, ['DocType', 'doc_type'])),
+      type: asString(pick(json, ['Type', 'type'])),
       date: DateTime.tryParse(
         asString(pick(json, ['Date', 'date'])),
       )?.toLocal(),

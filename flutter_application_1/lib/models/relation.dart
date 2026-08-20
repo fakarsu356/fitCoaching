@@ -35,6 +35,7 @@ class Relation {
     required this.studentId,
     required this.coachId,
     required this.status,
+    this.studentName = '',
     this.requestedTime,
     this.deletedTime,
     this.startedTime,
@@ -45,6 +46,13 @@ class Relation {
   final int studentId;
   final int coachId;
   final String status;
+
+  /// İsteği gönderen öğrencinin adı. Yalnızca `/relations/pending` cevabında
+  /// dolu gelir; diğer uçlar ham `entities.Relation` döndürüyor.
+  final String studentName;
+
+  String get studentLabel =>
+      studentName.trim().isEmpty ? 'Öğrenci #$studentId' : studentName.trim();
   final DateTime? requestedTime;
 
   /// İsteğin son geçerlilik tarihi (waiting durumunda) ya da cevaplanma tarihi.
@@ -73,6 +81,7 @@ class Relation {
       studentId: asInt(pick(json, ['StudentID', 'student_id'])),
       coachId: asInt(pick(json, ['CoachID', 'coach_id'])),
       status: asString(pick(json, ['Status', 'status'])),
+      studentName: asString(pick(json, ['student_name', 'StudentName'])),
       requestedTime: date(['RequestedTime', 'requested_time']),
       deletedTime: date(['DeletedTime', 'deleted_time']),
       startedTime: date(['StartedTime', 'started_time']),
@@ -117,9 +126,13 @@ class Student {
       bodyWeight: asDouble(pick(json, ['BodyWeight', 'body_weight'])),
       fatPercentage: asDouble(pick(json, ['FatPercentage', 'fat_percentage'])),
       bodyHeight: asDouble(pick(json, ['BodyHeight', 'body_height'])),
-      username: user == null
-          ? ''
-          : asString(pick(user, ['Username', 'username'])),
+      // `models.StudentM` adı üst seviyede veriyor; ham `entities.Student`
+      // dönen uçlarda ise `User` nesnesinin içinde duruyor.
+      username: asString(pick(json, ['username', 'Username'])).isNotEmpty
+          ? asString(pick(json, ['username', 'Username']))
+          : (user == null
+                ? ''
+                : asString(pick(user, ['Username', 'username']))),
     );
   }
 }

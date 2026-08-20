@@ -62,86 +62,89 @@ func (r *RelationRepository) FindCoachRelationFromStudentId(studentID uint) (*en
 func (r *RelationRepository) FindActiveByCoach(coachID uint) ([]entities.Student, error) { // koçun aktif öğrencilerini getiriyor
 	var relations []entities.Relation
 	var students []entities.Student
-	var student entities.Student
+
 	dbRet := r.db.Where("coach_id = ? AND status=?", coachID, entities.StatusActive).Find(&relations)
+	if dbRet.Error != nil {
+		return nil, dbRet.Error
+	}
+
 	for _, relation := range relations {
-		studentId := relation.StudentID
-		r.db.Model(entities.Student{}).Where("student_id = ?", studentId).Find(&student)
+
+		var student entities.Student
+		found := r.db.Preload("User").Where("user_id = ?", relation.StudentID).First(&student)
+		if found.Error != nil {
+
+			continue
+		}
 		students = append(students, student)
 	}
-	return students, dbRet.Error
+	return students, nil
 
 }
 func (r *RelationRepository) FindPendingRequests(coachId uint) ([]entities.Relation, error) { //koçun requestlerini almak için
 
 	var requests []entities.Relation
-	dbRet := r.db.Where("coach_id=?", coachId).Find(&requests)
+	// Preload("Student"): isteği gönderen kullanıcının adı gerekiyor, aksi
+	// hâlde koç kartta yalnızca kimlik numarası görüyor.
+	dbRet := r.db.Preload("Student").Where("coach_id=?", coachId).Find(&requests)
 	return requests, dbRet.Error
 }
 
 func (r *RelationRepository) FindStudentsRequest(studentId uint) (entities.Relation, error) { //öğrencinin requestini almak için
 
 	var request entities.Relation
-	dbRet := r.db.Where("student_id=?", studentId).Order("date DESC").First(&request)
+	// CLAUDE: "date" diye kolon yok, requested_time olacak (eski hali: Order("date DESC")).
+	dbRet := r.db.Where("student_id=?", studentId).Order("requested_time DESC").First(&request)
 	return request, dbRet.Error
 }
 
-// default time.Time nesnesi ne
-func (r *RelationRepository) DoesCoachHaveStudent(coachId uint, studentId uint) bool {
-	var relation entities.Relation
-	dbRet := r.db.Model(entities.Relation{}).Where("coach_id=?", coachId).Find(&relation)
+// CLAUDE: elemenin tamamı sorguya taşındı. Struct'a Find yapılınca GORM LIMIT 1
+// ekliyor, o yüzden koçun ilk ilişkisi dışındaki öğrenciler bulunamıyordu.
+// started_time kontrolü kalktı: alan NULL olabildiği için nil dereference riskliydi.
+func (r *RelationRepository) DoesCoachHaveStudent(coachId uint, studentId uint) bool { // koçun bu öğrenciyle şu an aktif bir bağı olup olmadığını söyler.
+
+	var number int64
+	dbRet := r.db.Model(&entities.Relation{}).
+		Where("coach_id = ? AND student_id = ? AND status = ?", coachId, studentId, entities.StatusActive).
+		Count(&number)
 	if dbRet.Error != nil {
 		return false
 	}
-	if relation.StudentID != studentId {
-		return false
-	}
-
-	if !relation.StartedTime.Before(time.Now()) {
-		return false
-
-	}
-	return true
-
+	return number > 0
 }
+
+// CLAUDE: Find + Go tarafı eleme yerine filtreli Count; nil started_time dereference kalktı.
 func (r *RelationRepository) IsRelaitonActive(coachId uint, studentId uint) bool {
-	var relation entities.Relation
-	dbRet := r.db.Model(entities.Relation{}).Where("coach_id=? AND student_id=? AND status = ?", coachId, studentId, entities.StatusActive).Find(&relation)
+	var number int64
+	dbRet := r.db.Model(&entities.Relation{}).
+		Where("coach_id = ? AND student_id = ? AND status = ?", coachId, studentId, entities.StatusActive).
+		Count(&number)
 	if dbRet.Error != nil {
 		return false
 	}
-	if relation.StudentID != studentId {
-		return false
-	}
-
-	if !relation.StartedTime.Before(time.Now()) {
-		return false
-
-	}
-	return true
-
+	return number > 0
 }
+
+// CLAUDE: eleme sorguda yapılıyor. Struct'a Find yapıldığında GORM sorguya LIMIT 1
+// eklediği için, koçun birden fazla kopmuş ilişkisi varsa yalnızca ilki
+// yükleniyor ve sorulan öğrenci hiç görünmüyordu. started_time kontrolü de
+// kalktı; status zaten ilişkinin başlamış olduğunu söylüyor ve alan NULL
+// olabildiği için nil dereference riski taşıyordu.
 func (r *RelationRepository) IsRelaitonBreakedUP(coachId uint, studentId uint) bool {
-	var relation entities.Relation
-	dbRet := r.db.Model(entities.Relation{}).Where("coach_id=? AND status = ?", coachId, entities.StatusBreakUp).Find(&relation)
+	var number int64
+	dbRet := r.db.Model(&entities.Relation{}).
+		Where("coach_id = ? AND student_id = ? AND status = ?", coachId, studentId, entities.StatusBreakUp).
+		Count(&number)
 	if dbRet.Error != nil {
 		return false
 	}
-	if relation.StudentID != studentId {
-		return false
-	}
-
-	if !relation.StartedTime.Before(time.Now()) {
-		return false
-
-	}
-	return true
+	return number > 0
 }
 
 func (r *RelationRepository) IsRelaitonWaiting(coachId uint, studentId uint) (*entities.Relation, error) {
 	var relation entities.Relation
 
-	dbRet := r.db.Model(entities.Relation{}).Where("coach_id=? AND status = ? ", coachId, entities.StatusWaiting).First(&relation)
+	dbRet := r.db.Model(entities.Relation{}).Where("coach_id=? AND student_id =? AND status = ?", coachId, studentId, entities.StatusWaiting).First(&relation)
 
 	return &relation, dbRet.Error
 }

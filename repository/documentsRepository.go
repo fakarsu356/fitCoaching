@@ -47,7 +47,7 @@ func (r *DocumentRepository) FindByUploader(uploaderID uint) ([]entities.Documen
 func (r *DocumentRepository) FindByUploaderAndType(uploaderID uint, docType entities.DocType) ([]entities.Document, error) {
 	var documents []entities.Document
 
-	dbRet := r.db.Where("uploader_id=? AND doc_type=? ", uploaderID, docType).Find(&documents)
+	dbRet := r.db.Where("uploader_id=? AND type=? ", uploaderID, docType).Find(&documents)
 	return documents, dbRet.Error
 
 }

@@ -45,7 +45,16 @@ func (r *RatingS) AddRating(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "binding failed"})
 		return
 	}
-	coachID := body["coach_id"].(float64)
+	// CLAUDE
+	coachID, coachOk := body["coach_id"].(float64)
+	if coachOk == false {
+		banner := "coach_id gönderilmeli"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 	coachId := uint(coachID)
 
 	status := r.RelationRep.IsRelaitonBreakedUP(coachId, studentId)
@@ -63,7 +72,16 @@ func (r *RatingS) AddRating(c *gin.Context) {
 		})
 	}
 
-	rate := body["rate"].(float64)
+	// CLAUDE
+	rate, rateOk := body["rate"].(float64)
+	if rateOk == false {
+		banner := "rate gönderilmeli"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 	Rate := int(rate)
 
 	description, ok := body["description"].(string)

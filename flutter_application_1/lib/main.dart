@@ -7,7 +7,7 @@ import 'core/theme.dart';
 import 'services/services.dart';
 import 'state/auth_controller.dart';
 import 'ui/auth/login_screen.dart';
-import 'ui/home/home_placeholder.dart';
+import 'ui/coach/coach_shell.dart';
 import 'ui/student/student_shell.dart';
 
 void main() {
@@ -78,7 +78,7 @@ class AppRoot extends StatelessWidget {
       case AuthStatus.signedOut:
         return const LoginScreen();
       case AuthStatus.coach:
-        return const HomePlaceholderScreen(isCoach: true);
+        return const CoachShell();
       case AuthStatus.student:
         return const StudentShell();
     }

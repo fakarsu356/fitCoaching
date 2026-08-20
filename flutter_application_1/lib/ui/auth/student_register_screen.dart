@@ -6,6 +6,7 @@ import '../../core/validators.dart';
 import '../../services/services.dart';
 import '../widgets/common.dart';
 import 'auth_scaffold.dart';
+import 'email_verification_field.dart';
 
 class StudentRegisterScreen extends StatefulWidget {
   const StudentRegisterScreen({super.key});
@@ -24,6 +25,7 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
   final _weight = TextEditingController();
   final _height = TextEditingController();
   final _fat = TextEditingController();
+  final _code = TextEditingController();
 
   String? _gender;
   bool _obscure = true;
@@ -40,6 +42,7 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
     _weight.dispose();
     _height.dispose();
     _fat.dispose();
+    _code.dispose();
     super.dispose();
   }
 
@@ -69,6 +72,7 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
       bodyWeight: Validators.toDouble(_weight.text),
       bodyHeight: Validators.toDouble(_height.text),
       gender: _gender!,
+      code: _code.text.trim(),
     );
 
     if (!mounted) return;
@@ -119,6 +123,12 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
                   ),
                   validator: Validators.email,
                 ),
+              ),
+              formGap,
+              EmailVerificationField(
+                controller: _code,
+                emailOf: () => _email.text,
+                enabled: !_busy,
               ),
               formGap,
               LabeledField(

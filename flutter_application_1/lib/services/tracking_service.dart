@@ -184,7 +184,8 @@ class DocumentService {
     return ApiResult<void>(ok: result.ok, message: result.message);
   }
 
-  /// POST /document/getDocumentList — koç rolünde [studentId] zorunlu.
+  /// POST /document/getDocumentList — [studentId] verilmezse kendi belgeleri,
+  /// koç rolünde verilirse o öğrencinin belgeleri döner.
   Future<ApiResult<List<DocumentItem>>> getList({int? studentId}) async {
     final result = await _client.post(
       '/document/getDocumentList',
