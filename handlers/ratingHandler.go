@@ -70,6 +70,7 @@ func (r *RatingS) AddRating(c *gin.Context) {
 			Status: false,
 			Banner: &banner,
 		})
+		return
 	}
 
 	// CLAUDE
@@ -109,16 +110,51 @@ func (r *RatingS) AddRating(c *gin.Context) {
 }
 
 func (r *RatingS) GetCoachAvarage(c *gin.Context) {
-	coachID, exists := c.Get("user_id")
-	if exists == false {
-		c.JSON(400, gin.H{"error": "user_id could not be found"})
+	var body map[string]any // CLAUDE: koç id'si body'den gelmeli
+	if err := c.ShouldBindJSON(&body); err != nil {
+		banner := "hata B"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
-	coachId := coachID.(uint)
-
+	coachID, ok := body["coach_id"].(float64)
+	if !ok {
+		banner := "hata Convertion"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	coachId := uint(coachID)
+	studentID, exists := c.Get("user_id")
+	if exists == false {
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	studentId := studentID.(uint)
+	relation := r.RelationRep.IsRelaitonBreakedUP(coachId, studentId)
+	if relation != true {
+		banner := "bu koçla bağlantınız yok "
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
 	avarage, avgErr := r.RatingRepo.AverageByCoach(coachId)
 	if avgErr != nil {
-		c.JSON(400, gin.H{"error": avgErr.Error()})
+		banner := "hata"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
 

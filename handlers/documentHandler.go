@@ -50,7 +50,7 @@ func (d *DocumentS) AddDocument(c *gin.Context) {
 
 	docType := entities.DocType(c.PostForm("type"))
 	if docType != entities.CaochSertificate && docType != entities.HealthResults &&
-		docType != entities.MealPictures && docType != entities.CV {
+		docType != entities.MealPictures && docType != entities.CV && docType != entities.ProgressPictures {
 		banner := "invalid type"
 		utils.Response(c, utils.ResponseS{
 			Status: false,

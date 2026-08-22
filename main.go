@@ -103,7 +103,7 @@ func main() {
 	router.POST("/relations/myStudents", utils.RequireRole("Coach"), relationHandler.GetMyStudents)
 	router.POST("/relations/leave", utils.RequireRole("Student"), relationHandler.LeaveCoach)
 	router.POST("/relations/pastCoaches", utils.RequireRole("Student"), relationHandler.GetPastCoach)
-	router.POST("/relations/waitingRequests", utils.RequireRole("Student"), relationHandler.GetPendingRequests)
+	// gereksiz gibi bu router.POST("/relations/waitingRequests", utils.RequireRole("Student"), relationHandler.GetPendingRequests)
 	router.POST("/relations/myCoach", utils.RequireRole("Student"), relationHandler.GetMyCoach)
 	router.POST("/relations/myrequest", utils.RequireRole("Student"), relationHandler.GetRequest)
 

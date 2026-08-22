@@ -6,7 +6,7 @@ import "time"
 type Document struct {
 	ID         uint      `gorm:"primaryKey;autoIncrement"`
 	UploaderID uint      `gorm:"not null;index"`
-	UniqueName string    `gorm:"unique;not null"` // hashli kısım
+	UniqueName string    `gorm:"not null"` // hashli kısım
 	DocName    string    `gorm:"size:256;not null"`
 	Size       float64   `gorm:"not null"`
 	Date       time.Time `gorm:"not null;index"`

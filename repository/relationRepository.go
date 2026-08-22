@@ -41,7 +41,7 @@ func (r *RelationRepository) FindExpiredRequests() ([]entities.Relation, error) 
 
 	var expiredRequests []entities.Relation
 
-	dbRet := r.db.Where("status=? AND expires_at < ?", entities.StatusWaiting, time.Now()).Find(&expiredRequests)
+	dbRet := r.db.Where("status=? AND  deleted_time < ?", entities.StatusWaiting, time.Now()).Find(&expiredRequests)
 
 	return expiredRequests, dbRet.Error
 }

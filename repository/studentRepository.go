@@ -50,7 +50,14 @@ func (r *StudentRepository) GetByUserID(userID uint) (entities.User, error) {
 	return user, dbReturn.Error
 }
 func (r *StudentRepository) GetLastCoach(studentId uint) (entities.Coach, error) {
+	rel := entities.Relation{}
 	coach := entities.Coach{}
-	dbRet := r.db.Model(&entities.Coach{}).Where("user_id = ?", studentId).Order("date DESC").First(&coach)
+	dbRet := r.db.Model(&entities.Relation{}).Where("student_id = ? AND  status = ?", studentId, entities.StatusBreakUp).Order(" ended_time DESC").First(&rel)
+	if dbRet.Error != nil {
+		return coach, dbRet.Error
+	}
+	coachId := rel.CoachID
+	dbRet = r.db.Model(&entities.Coach{}).Where("user_id = ?", coachId).First(&coach)
+
 	return coach, dbRet.Error
 }

@@ -123,12 +123,13 @@ func (r *RelationS) SendRequest(c *gin.Context) {
 		})
 		return
 	}
-
+	deleteTime := time.Now().Add(48 * time.Hour)
 	relation := entities.Relation{
 		StudentID:     userID,
 		CoachID:       coachId,
 		RequestedTime: time.Now(),
 		Status:        entities.StatusWaiting,
+		DeletedTime:   &deleteTime,
 	}
 	errRel := r.RelationRep.Create(&relation)
 	if errRel != nil {

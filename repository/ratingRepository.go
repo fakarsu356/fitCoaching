@@ -39,8 +39,11 @@ func (r *RatingRepository) GetById(id int) (entities.Rating, error) {
 
 func (r *RatingRepository) FindByStudentAndCoach(studentID, coachID uint) (*entities.Rating, error) {
 	var rating entities.Rating
-	dbRet := r.db.Where("student_id = ? AND coach = ?", studentID, coachID).First(&rating)
-	return &rating, dbRet.Error
+	dbRet := r.db.Where("student_id = ? AND coach_id = ?", studentID, coachID).First(&rating)
+	if dbRet.Error != nil {
+		return nil, dbRet.Error // CLAUDE
+	}
+	return &rating, nil
 } // bu öğrenci bu koça daha önce puan vermiş mi" kontrolü
 
 func (r *RatingRepository) AverageByCoach(coachID uint) (float64, error) {
@@ -51,7 +54,7 @@ func (r *RatingRepository) AverageByCoach(coachID uint) (float64, error) {
 	for _, puan := range ratings {
 		totalPuan = totalPuan + float64(puan.Score)
 		temp++
-	}	
+	}
 	if temp == 0 {
 		return -1, dbRet.Error
 	}
