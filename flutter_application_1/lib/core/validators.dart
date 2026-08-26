@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 /// Backend'deki doğrulama kurallarının birebir karşılığı.
 ///
 /// Değerler hem `utils.ValidatePassword` / handler kontrollerinden hem de
@@ -20,7 +22,8 @@ class Validators {
   static const int minStudents = 1;
   static const int maxStudents = 19; // DB: max_students < 20
 
-  // Set
+  // Antrenman / set
+  static const int maxWorkoutNameLength = 64; // DB: workouts.name size:64
   static const int maxReps = 50;
   static const double maxSetWeight = 1000;
   static const int maxMovementNameLength = 32;
@@ -146,6 +149,22 @@ class Validators {
 
   static int toInt(String value) => int.tryParse(value.trim()) ?? 0;
 }
+
+/// Tekrar kutusu: yalnızca rakam.
+final List<TextInputFormatter> repsInputFormatters = [
+  FilteringTextInputFormatter.digitsOnly,
+];
+
+/// Ağırlık kutusu: rakamlar ve tek bir ondalık ayırıcı (virgül ya da nokta).
+/// Klavyeden gelen istenmeyen karakterler yüzünden "ağırlık hatalı" uyarısı
+/// çıkmasın diye daha alana yazılırken süzülüyor.
+final List<TextInputFormatter> weightInputFormatters = [
+  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+  TextInputFormatter.withFunction((oldValue, newValue) {
+    final separators = RegExp(r'[.,]').allMatches(newValue.text).length;
+    return separators > 1 ? oldValue : newValue;
+  }),
+];
 
 /// entities.User içindeki `gender IN ('Male','female')` kısıtı bu iki değeri
 /// birebir bekliyor — büyük/küçük harf farkı kasıtlı değil ama zorunlu.

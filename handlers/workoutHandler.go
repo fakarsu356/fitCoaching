@@ -15,6 +15,7 @@ type AddWorkoutInput struct {
 	WorkoutID    uint                   `json:"workout_id,omitempty"`
 	StudentID    uint                   `json:"student_id"`
 	Date         time.Time              `json:"date"`
+	Name         string                 `json:"name"` // CLAUDE
 	Note         string                 `json:"note"`
 	Generator    bool                   `json:"generator,omitempty"`      // eğer true ise öğrenci
 	SourcePlanID *uint                  `json:"source_plan_id,omitempty"` // öğrencinin hangi planı yapacağını belirler  koç için nil
@@ -110,7 +111,8 @@ func (w *WorkoutS) AddWorkoutCoach(c *gin.Context) {
 	workout := entities.Workout{
 		CoachID:   coachId,
 		StudentID: studentId,
-		Date:      workoutDate, // CLAUDE
+		Date:      workoutDate,  // CLAUDE
+		Name:      allData.Name, // CLAUDE
 		Notes:     allData.Note,
 		Status:    entities.WorkoutWaiting,
 		Generator: false, // eğer false ise koç
@@ -125,6 +127,9 @@ func (w *WorkoutS) AddWorkoutCoach(c *gin.Context) {
 		})
 		return
 	}
+	// CLAUDE: cevapta ham entities.Workout dönüyordu; içindeki Coach/Student
+	// User struct larının json tag i yok, PasswordHash de serialize oluyor.
+	var setsM []models.SetM // CLAUDE
 	if allData.Sets != nil {
 		for _, set := range allData.Sets {
 			set.WorkoutID = realWorkout.ID
@@ -139,13 +144,34 @@ func (w *WorkoutS) AddWorkoutCoach(c *gin.Context) {
 				})
 				return
 			}
+			setsM = append(setsM, models.SetM{ // CLAUDE
+				ID:           set.ID,
+				WorkoutID:    set.WorkoutID,
+				MovementName: set.MovementName,
+				SetNumber:    set.SetNumber,
+				Reps:         set.Reps,
+				Weight:       set.Weight,
+				Date:         set.Date,
+			})
 		}
+	}
+	workoutM := models.WorkoutM{ // CLAUDE
+		ID:           realWorkout.ID,
+		CoachID:      realWorkout.CoachID,
+		StudentID:    realWorkout.StudentID,
+		Date:         realWorkout.Date,
+		Name:         realWorkout.Name,
+		Notes:        realWorkout.Notes,
+		Status:       realWorkout.Status,
+		Generator:    realWorkout.Generator,
+		SourcePlanID: realWorkout.SourcePlanID,
+		Sets:         setsM,
 	}
 	banner := "success"
 	utils.Response(c, utils.ResponseS{
 		Status: true,
 		Banner: &banner,
-		Data:   realWorkout,
+		Data:   workoutM, // CLAUDE
 	})
 }
 
@@ -226,6 +252,7 @@ func (w *WorkoutS) GetTodayPlan(c *gin.Context) {
 
 	workoutM := models.WorkoutM{
 		ID:           workout.ID,
+		Name:         workout.Name, // CLAUDE
 		Notes:        workout.Notes,
 		Status:       workout.Status,
 		Sets:         setsM,
@@ -319,9 +346,12 @@ func (w *WorkoutS) SaveStudentsWorkout(c *gin.Context) {
 	}
 
 	workout := entities.Workout{
-		CoachID:      coach.UserID,
-		StudentID:    studentId,
-		Date:         time.Now(),
+		CoachID:   coach.UserID,
+		StudentID: studentId,
+		Date:      time.Now(),
+		// CLAUDE: öğrencinin kaydı, yaptığı planın adını devralır; istemci ayrı
+		// bir ad göndermiyor.
+		Name:         workoutDb.Name,
 		Notes:        totalWorkout.Note,
 		Generator:    true,
 		SourcePlanID: &root,
@@ -337,6 +367,9 @@ func (w *WorkoutS) SaveStudentsWorkout(c *gin.Context) {
 		return
 	}
 
+	// CLAUDE: cevapta ham entities.Workout dönüyordu; içindeki Coach/Student
+	// User struct larının json tag i yok, PasswordHash de serialize oluyor.
+	var setsM []models.SetM // CLAUDE
 	for i, set := range totalWorkout.Sets {
 		set.ID = 0
 		set.WorkoutID = createdWorkout.ID
@@ -352,6 +385,15 @@ func (w *WorkoutS) SaveStudentsWorkout(c *gin.Context) {
 			})
 			return
 		}
+		setsM = append(setsM, models.SetM{ // CLAUDE
+			ID:           set.ID,
+			WorkoutID:    set.WorkoutID,
+			MovementName: set.MovementName,
+			SetNumber:    set.SetNumber,
+			Reps:         set.Reps,
+			Weight:       set.Weight,
+			Date:         set.Date,
+		})
 	}
 
 	workoutId := *totalWorkout.SourcePlanID
@@ -378,11 +420,23 @@ func (w *WorkoutS) SaveStudentsWorkout(c *gin.Context) {
 		return
 	}
 
+	workoutM := models.WorkoutM{ // CLAUDE
+		ID:           createdWorkout.ID,
+		CoachID:      createdWorkout.CoachID,
+		StudentID:    createdWorkout.StudentID,
+		Date:         createdWorkout.Date,
+		Name:         createdWorkout.Name,
+		Notes:        createdWorkout.Notes,
+		Status:       createdWorkout.Status,
+		Generator:    createdWorkout.Generator,
+		SourcePlanID: createdWorkout.SourcePlanID,
+		Sets:         setsM,
+	}
 	banner := "success"
 	utils.Response(c, utils.ResponseS{
 		Status: true,
 		Banner: &banner,
-		Data:   createdWorkout,
+		Data:   workoutM, // CLAUDE
 	})
 }
 func (w *WorkoutS) CopyWorkout(c *gin.Context) {
@@ -464,6 +518,7 @@ func (w *WorkoutS) CopyWorkout(c *gin.Context) {
 	}
 
 	workoutCopied.Status = entities.WorkoutWaiting
+	workoutCopied.Generator = false //
 
 	workoutCopied.StudentID = studentId
 
@@ -488,11 +543,13 @@ func (w *WorkoutS) CopyWorkout(c *gin.Context) {
 	}
 	workoutM := models.WorkoutM{
 		ID:           workoutCreated.ID,
+		CoachID:      workoutCreated.CoachID, // CLAUDE: cevapta coach_id 0 dönüyordu
 		StudentID:    studentId,
 		Date:         workoutCreated.Date,
+		Name:         workoutCreated.Name,
 		Notes:        workoutCreated.Notes,
 		Status:       entities.WorkoutWaiting,
-		Generator:    workoutCreated.Generator,
+		Generator:    false, //
 		SourcePlanID: workoutCreated.SourcePlanID,
 	}
 	sets, setsErr := w.SetRepo.FindByWorkoutID(workoutId)
@@ -584,6 +641,7 @@ func (w *WorkoutS) UpdateWorkout(c *gin.Context) {
 	}
 	existing.StudentID = body.StudentID
 	existing.Date = time.Now()
+	existing.Name = body.Name // CLAUDE
 	existing.Notes = body.Note
 
 	updateErr := w.WorkoutRep.Update(&existing)
@@ -693,6 +751,7 @@ func (w *WorkoutS) GetCoachWorkouts(c *gin.Context) {
 		datum.CoachID = workout.CoachID
 		datum.SourcePlanID = workout.SourcePlanID
 		datum.StudentID = workout.StudentID
+		datum.Name = workout.Name // CLAUDE
 		datum.Notes = workout.Notes
 		data = append(data, datum)
 	}
@@ -803,6 +862,7 @@ func (w *WorkoutS) GetWorkoutsByDate(c *gin.Context) {
 				return
 			}
 			realWorkout.Date = workout.Date
+			realWorkout.Name = workout.Name // CLAUDE
 			realWorkout.Notes = workout.Notes
 			realWorkout.StudentID = workout.StudentID
 			realWorkout.ID = workout.ID
@@ -880,6 +940,7 @@ func (w *WorkoutS) GetWorkoutsByDate(c *gin.Context) {
 				return
 			}
 			realWorkout.Date = workout.Date
+			realWorkout.Name = workout.Name // CLAUDE
 			realWorkout.Notes = workout.Notes
 			realWorkout.StudentID = workout.StudentID
 			realWorkout.ID = workout.ID
@@ -1012,6 +1073,7 @@ func (w *WorkoutS) GetWorkoutDetail(c *gin.Context) {
 		}
 
 		realWorkout.Date = workout.Date
+		realWorkout.Name = workout.Name // CLAUDE
 		realWorkout.Notes = workout.Notes
 		realWorkout.StudentID = workout.StudentID
 		realWorkout.ID = workoutID
@@ -1089,6 +1151,7 @@ func (w *WorkoutS) GetWorkoutDetail(c *gin.Context) {
 			return
 		}
 		realWorkout.Date = workout.Date
+		realWorkout.Name = workout.Name // CLAUDE
 		realWorkout.Notes = workout.Notes
 		realWorkout.StudentID = workout.StudentID
 		realWorkout.ID = workoutID

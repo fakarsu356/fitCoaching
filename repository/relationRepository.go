@@ -84,9 +84,7 @@ func (r *RelationRepository) FindActiveByCoach(coachID uint) ([]entities.Student
 func (r *RelationRepository) FindPendingRequests(coachId uint) ([]entities.Relation, error) { //koçun requestlerini almak için
 
 	var requests []entities.Relation
-	// Preload("Student"): isteği gönderen kullanıcının adı gerekiyor, aksi
-	// hâlde koç kartta yalnızca kimlik numarası görüyor.
-	dbRet := r.db.Preload("Student").Where("coach_id=?", coachId).Find(&requests)
+	dbRet := r.db.Preload("Student").Where("coach_id=? AND status =?", coachId, entities.StatusWaiting).Find(&requests)
 	return requests, dbRet.Error
 }
 
@@ -94,7 +92,7 @@ func (r *RelationRepository) FindStudentsRequest(studentId uint) (entities.Relat
 
 	var request entities.Relation
 	// CLAUDE: "date" diye kolon yok, requested_time olacak (eski hali: Order("date DESC")).
-	dbRet := r.db.Where("student_id=?", studentId).Order("requested_time DESC").First(&request)
+	dbRet := r.db.Where("student_id=? AND status = ?", studentId, entities.StatusWaiting).Order("requested_time DESC").First(&request)
 	return request, dbRet.Error
 }
 

@@ -193,14 +193,9 @@ func (r *RelationS) ApproveRequest(c *gin.Context) {
 		})
 		return
 	}
-	coaches, dbErrC := r.StudentRep.GetCoachsStudents(realCoachId)
-	if dbErrC != nil {
-		utils.Response(c, utils.ResponseS{
-			Status: false,
-			Banner: nil,
-		})
-		return
-	}
+	activeCount := r.RelationRep.GetCoachsStudents(realCoachId)
+	
+
 	coach, dbErrC := r.CoachRep.GetById(realCoachId)
 	if dbErrC != nil {
 		utils.Response(c, utils.ResponseS{
@@ -209,12 +204,12 @@ func (r *RelationS) ApproveRequest(c *gin.Context) {
 		})
 		return
 	}
-	if len(coaches) >= coach.MaxStudents {
+	if activeCount >= coach.MaxStudents{
 		banner := "kapasitenizden fazla öğrenci var"
 		utils.Response(c, utils.ResponseS{
 			Status: false,
 			Banner: &banner,
-		})
+		}) 
 		return
 	}
 

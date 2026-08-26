@@ -61,3 +61,11 @@ func (r *StudentRepository) GetLastCoach(studentId uint) (entities.Coach, error)
 
 	return coach, dbRet.Error
 }
+
+// CLAUDE: mevcut GetById'ye dokunulmadı — o Find kullanıyor ve kayıt
+// bulunamayınca hata döndürmüyor; workoutHandler.go:84 ve :176 buna yaslanmış.
+func (r *StudentRepository) GetByIdWithUser(id uint) (entities.Student, error) {
+	var student entities.Student
+	dbRet := r.db.Preload("User").First(&student, id)
+	return student, dbRet.Error
+}

@@ -99,6 +99,8 @@ class Student {
     required this.fatPercentage,
     required this.bodyHeight,
     this.username = '',
+    this.email = '',
+    this.gender = '',
   });
 
   final int userId;
@@ -107,6 +109,11 @@ class Student {
   final double fatPercentage;
   final double bodyHeight;
   final String username;
+
+  /// `models.StudentM` bu ikisini `omitempty` ile veriyor; koç listesinde
+  /// dolu, ham `entities.Student` dönen uçlarda boş gelebilir.
+  final String email;
+  final String gender;
 
   String get displayName =>
       username.trim().isEmpty ? 'Öğrenci #$userId' : username.trim();
@@ -121,7 +128,9 @@ class Student {
   factory Student.fromJson(Map<String, dynamic> json) {
     final user = asMap(pick(json, ['User', 'user']));
     return Student(
-      userId: asInt(pick(json, ['UserID', 'user_id', 'StudentID', 'student_id'])),
+      userId: asInt(
+        pick(json, ['UserID', 'user_id', 'StudentID', 'student_id']),
+      ),
       age: asInt(pick(json, ['Age', 'age'])),
       bodyWeight: asDouble(pick(json, ['BodyWeight', 'body_weight'])),
       fatPercentage: asDouble(pick(json, ['FatPercentage', 'fat_percentage'])),
@@ -133,6 +142,12 @@ class Student {
           : (user == null
                 ? ''
                 : asString(pick(user, ['Username', 'username']))),
+      email: asString(pick(json, ['email', 'Email'])).isNotEmpty
+          ? asString(pick(json, ['email', 'Email']))
+          : (user == null ? '' : asString(pick(user, ['Email', 'email']))),
+      gender: asString(pick(json, ['gender', 'Gender'])).isNotEmpty
+          ? asString(pick(json, ['gender', 'Gender']))
+          : (user == null ? '' : asString(pick(user, ['Gender', 'gender']))),
     );
   }
 }

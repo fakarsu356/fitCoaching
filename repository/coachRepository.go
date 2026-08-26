@@ -30,7 +30,7 @@ func (r *CoachRepository) Delete(id int) error {
 }
 func (r *CoachRepository) GetById(id uint) (entities.Coach, error) {
 	var coach entities.Coach
-	dbReturn := r.db.First(&coach, id)
+	dbReturn := r.db.Preload("User").First(&coach, id) // CLAUDE: coach.User boş geliyordu (username/email/gender)
 
 	return coach, dbReturn.Error
 

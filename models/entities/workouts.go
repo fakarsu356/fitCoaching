@@ -9,6 +9,7 @@ type Workout struct {
 	StudentID    uint          `gorm:"not null;type:int;index"`
 	Student      User          `gorm:"foreignKey:StudentID"`
 	Date         time.Time     `gorm:"type:datetime;not null"`
+	Name         string        `gorm:"size:64"` // CLAUDE: programın adı ("Push Day"); eski kayıtlarda boş kalır
 	Notes        string        `gorm:"size:200;type:text"`
 	Generator    bool          `gorm:"not null;default:false"` //eğer true ise öğrenci
 	SourcePlanID *uint         `gorm:"column:source_plan_id"`  //koçun gireceği antrenman verisinde burası nil olur

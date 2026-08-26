@@ -29,6 +29,9 @@ class CoachWorkoutsScreen extends StatefulWidget {
 class _CoachWorkoutsScreenState extends State<CoachWorkoutsScreen> {
   List<Workout>? _workouts;
   List<Student> _students = const [];
+
+  /// Seçili öğrenci; null ise öğrenci listesi gösteriliyor.
+  int? _selectedStudentId;
   String? _error;
   bool _loading = true;
 
@@ -195,89 +198,154 @@ class _CoachWorkoutsScreenState extends State<CoachWorkoutsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Programlar'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Yenile',
-            onPressed: _loading ? null : _load,
+    final selected = _selectedStudentId;
+
+    return PopScope(
+      // Bir öğrencinin listesindeyken geri tuşu ekrandan çıkmasın, öğrenci
+      // listesine dönsün.
+      canPop: selected == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _selectedStudentId = null);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            selected == null ? 'Programlar' : _studentLabel(selected),
           ),
+          leading: selected == null
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: 'Öğrenciler',
+                  onPressed: () => setState(() => _selectedStudentId = null),
+                ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Yenile',
+              onPressed: _loading ? null : _load,
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _loading
+              ? null
+              : () => _create(
+                  student: selected == null ? null : _studentOf(selected),
+                ),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add),
+          label: const Text('Yeni program'),
+        ),
+        body: AsyncContent<List<Workout>>(
+          loading: _loading,
+          error: _error,
+          data: _workouts,
+          onRetry: _load,
+          builder: (workouts) {
+            final grouped = _groupByStudent(workouts);
+            if (selected != null) {
+              return _planList(grouped[selected] ?? const []);
+            }
+            return _studentList(grouped);
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Öğrenci listesi: koç önce kime bakacağını seçiyor, plan kartları ancak
+  /// ondan sonra geliyor. Hepsi tek listede olduğunda kaydırmaktan hiçbir
+  /// öğrencinin geçmişi görünmüyordu.
+  Widget _studentList(Map<int, List<Workout>> grouped) {
+    // Hiç programı olmayan öğrenci de listede kalmalı: koç ona program yazmak
+    // için önce adına tıklıyor.
+    final ids = <int>{
+      ..._students.map((student) => student.userId),
+      ...grouped.keys,
+    }.toList()..sort((a, b) => _studentLabel(a).compareTo(_studentLabel(b)));
+
+    if (ids.isEmpty) {
+      return EmptyState(
+        icon: Icons.group_outlined,
+        title: 'Aktif öğrencin yok',
+        description:
+            '"İstekler" sekmesinden bir öğrenciyi onayladığında '
+            'burada görünür.',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      color: AppColors.primary,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSizes.pagePadding,
+          AppSizes.pagePadding,
+          AppSizes.pagePadding,
+          AppSizes.pagePadding + 72,
+        ),
+        children: [
+          const SectionTitle(
+            'Öğrencilerin',
+            subtitle: 'Programlarını görmek için bir öğrenciye dokun.',
+          ),
+          for (final id in ids) ...[
+            _StudentRow(
+              name: _studentLabel(id),
+              plans: grouped[id] ?? const [],
+              onTap: () => setState(() => _selectedStudentId = id),
+            ),
+            const SizedBox(height: AppSizes.gapSmall),
+          ],
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _loading ? null : () => _create(),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Yeni program'),
-      ),
-      body: AsyncContent<List<Workout>>(
-        loading: _loading,
-        error: _error,
-        data: _workouts,
-        onRetry: _load,
-        builder: (workouts) {
-          if (workouts.isEmpty) {
-            return EmptyState(
-              icon: Icons.assignment_outlined,
-              title: 'Henüz program yazmadın',
-              description: _students.isEmpty
-                  ? 'Önce "İstekler" sekmesinden bir öğrenciyi onayla, sonra '
-                        'buradan program yazabilirsin.'
-                  : 'Aşağıdaki "Yeni program" düğmesiyle öğrencilerine '
-                        'antrenman planı gönder.',
-              action: _students.isEmpty
-                  ? null
-                  : ElevatedButton(
-                      onPressed: () => _create(),
-                      child: const Text('Yeni program'),
-                    ),
-            );
-          }
+    );
+  }
 
-          final grouped = _groupByStudent(workouts);
-          final studentIds = grouped.keys.toList()
-            ..sort((a, b) => _studentLabel(a).compareTo(_studentLabel(b)));
+  /// Seçili öğrencinin programları (yeniden eskiye).
+  Widget _planList(List<Workout> plans) {
+    if (plans.isEmpty) {
+      return EmptyState(
+        icon: Icons.assignment_outlined,
+        title: 'Bu öğrenciye program yazmadın',
+        description:
+            'Aşağıdaki "Yeni program" düğmesiyle antrenman planı '
+            'gönderebilirsin.',
+        action: ElevatedButton(
+          onPressed: () => _create(student: _studentOf(_selectedStudentId!)),
+          child: const Text('Yeni program'),
+        ),
+      );
+    }
 
-          return RefreshIndicator(
-            onRefresh: _load,
-            color: AppColors.primary,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSizes.pagePadding,
-                AppSizes.pagePadding,
-                AppSizes.pagePadding,
-                // FAB listenin son kartını kapatmasın.
-                AppSizes.pagePadding + 72,
-              ),
-              children: [
-                for (final studentId in studentIds) ...[
-                  SectionTitle(
-                    _studentLabel(studentId),
-                    subtitle: '${grouped[studentId]!.length} program',
-                    action: TextButton(
-                      onPressed: () => _create(student: _studentOf(studentId)),
-                      child: const Text('Program yaz'),
-                    ),
-                  ),
-                  for (final plan in grouped[studentId]!) ...[
-                    _PlanCard(
-                      plan: plan,
-                      onEdit: plan.isWaiting && !plan.byStudent
-                          ? () => _edit(plan)
-                          : null,
-                      onCopy: () => _copy(plan),
-                    ),
-                    const SizedBox(height: AppSizes.gapSmall),
-                  ],
-                  const SizedBox(height: AppSizes.gapSmall),
-                ],
-              ],
+    return RefreshIndicator(
+      onRefresh: _load,
+      color: AppColors.primary,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSizes.pagePadding,
+          AppSizes.pagePadding,
+          AppSizes.pagePadding,
+          AppSizes.pagePadding + 72,
+        ),
+        children: [
+          SectionTitle(
+            '${plans.length} program',
+            subtitle: 'Son yazılan en üstte.',
+          ),
+          for (final plan in plans) ...[
+            _PlanCard(
+              plan: plan,
+              onEdit: plan.isWaiting && !plan.byStudent
+                  ? () => _edit(plan)
+                  : null,
+              onCopy: () => _copy(plan),
             ),
-          );
-        },
+            const SizedBox(height: AppSizes.gapSmall),
+          ],
+        ],
       ),
     );
   }
@@ -287,6 +355,48 @@ class _CoachWorkoutsScreenState extends State<CoachWorkoutsScreen> {
       if (student.userId == studentId) return student;
     }
     return null;
+  }
+}
+
+/// Öğrenci listesindeki tek satır: ad, program sayısı ve son program tarihi.
+class _StudentRow extends StatelessWidget {
+  const _StudentRow({
+    required this.name,
+    required this.plans,
+    required this.onTap,
+  });
+
+  final String name;
+  final List<Workout> plans;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final last = plans.isEmpty ? null : plans.first.date;
+
+    return AppCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 4),
+                Text(
+                  plans.isEmpty
+                      ? 'Henüz program yok'
+                      : '${plans.length} program · son: ${AppDate.readable(last)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+        ],
+      ),
+    );
   }
 }
 
@@ -311,7 +421,9 @@ class _PlanCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  AppDate.readable(plan.date),
+                  plan.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -320,7 +432,8 @@ class _PlanCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${byMovement.length} hareket · ${plan.totalSets} set',
+            '${AppDate.readable(plan.date)} · ${byMovement.length} hareket · '
+            '${plan.totalSets} set',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (plan.notes.trim().isNotEmpty) ...[

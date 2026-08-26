@@ -132,6 +132,9 @@ func main() {
 	router.POST("/document/getDocument", utils.AuthMiddleware(), documentHandler.GetDocument)
 
 	router.POST("/profile/getCoach", utils.AuthMiddleware(), profileHandler.CoachProfile)
+	router.POST("/profile/resetPassword", utils.AuthMiddleware(), profileHandler.ResetPassword)
+	router.POST("/profile/getStudent", utils.RequireRole("Student"), profileHandler.StudentProfile) // CLAUDE
+	router.POST("/profile/updateStudent", utils.RequireRole("Student"), profileHandler.UpdateStudent) // CLAUDE
 
 	router.Run(":8080")
 }

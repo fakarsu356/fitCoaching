@@ -9,18 +9,19 @@ class WorkoutService {
 
   final ApiClient _client;
 
-  /// Set listesi `entities.Set` alan adlarıyla gönderilir.
+  /// Set listesi `entities.Set` alan adlarÄ±yla gÃ¶nderilir.
   List<Map<String, dynamic>> _setsPayload(List<WorkoutSet> sets) {
     return sets.map((set) => set.toApiJson()).toList();
   }
 
-  /// POST /workout/workoutAdd — koç öğrenciye plan girer.
+  /// POST /workout/workoutAdd â koÃ§ Ã¶Ärenciye plan girer.
   ///
-  /// `date` gönderilmiyor: backend'de `time.Time` olarak bind edildiği için
-  /// serbest formatlı bir tarih tüm isteği bozar, handler zaten `time.Now()`
-  /// kullanıyor.
+  /// `date` gÃ¶nderilmiyor: backend'de `time.Time` olarak bind edildiÄi iÃ§in
+  /// serbest formatlÄ± bir tarih tÃ¼m isteÄi bozar, handler zaten `time.Now()`
+  /// kullanÄ±yor.
   Future<ApiResult<void>> addWorkout({
     required int studentId,
+    required String name,
     required String note,
     required List<WorkoutSet> sets,
   }) async {
@@ -28,6 +29,7 @@ class WorkoutService {
       '/workout/workoutAdd',
       body: {
         'student_id': studentId,
+        'name': name,
         'note': note,
         'sets': _setsPayload(sets),
       },
@@ -35,7 +37,7 @@ class WorkoutService {
     return ApiResult<void>(ok: result.ok, message: result.message);
   }
 
-  /// POST /workout/getworkout — öğrencinin sıradaki (en eski bekleyen) planı.
+  /// POST /workout/getworkout â Ã¶Ärencinin sÄ±radaki (en eski bekleyen) planÄ±.
   Future<ApiResult<Workout?>> getTodayPlan() async {
     final result = await _client.post('/workout/getworkout');
     if (!result.ok) return ApiResult.failure<Workout?>(result.message);
@@ -45,7 +47,7 @@ class WorkoutService {
     );
   }
 
-  /// POST /workout/saveWorkout — öğrenci yaptığı antrenmanı kaydeder.
+  /// POST /workout/saveWorkout â Ã¶Ärenci yaptÄ±ÄÄ± antrenmanÄ± kaydeder.
   Future<ApiResult<void>> saveStudentWorkout({
     required int studentId,
     required int sourcePlanId,
@@ -65,7 +67,7 @@ class WorkoutService {
     return ApiResult<void>(ok: result.ok, message: result.message);
   }
 
-  /// POST /workout/workoutcopy — geçmiş bir planı öğrenciye kopyalar.
+  /// POST /workout/workoutcopy â geÃ§miÅ bir planÄ± Ã¶Ärenciye kopyalar.
   Future<ApiResult<void>> copyWorkout({
     required int workoutId,
     required int studentId,
@@ -77,10 +79,11 @@ class WorkoutService {
     return ApiResult<void>(ok: result.ok, message: result.message);
   }
 
-  /// POST /workout/workoutupdate — öğrenci cevaplamadan planı günceller.
+  /// POST /workout/workoutupdate â Ã¶Ärenci cevaplamadan planÄ± gÃ¼nceller.
   Future<ApiResult<void>> updateWorkout({
     required int workoutId,
     required int studentId,
+    required String name,
     required String note,
     required List<WorkoutSet> sets,
   }) async {
@@ -89,6 +92,7 @@ class WorkoutService {
       body: {
         'workout_id': workoutId,
         'student_id': studentId,
+        'name': name,
         'note': note,
         'sets': _setsPayload(sets),
       },
@@ -96,7 +100,7 @@ class WorkoutService {
     return ApiResult<void>(ok: result.ok, message: result.message);
   }
 
-  /// POST /workout/workoutlist — koçun girdiği planlar.
+  /// POST /workout/workoutlist â koÃ§un girdiÄi planlar.
   Future<ApiResult<List<Workout>>> getCoachWorkouts() async {
     final result = await _client.post('/workout/workoutlist');
     if (!result.ok) return ApiResult.failure<List<Workout>>(result.message);
@@ -105,8 +109,8 @@ class WorkoutService {
     );
   }
 
-  /// POST /workout/workoutsbytime — tarih aralığındaki antrenmanlar.
-  /// Koç rolünde [studentId] zorunlu.
+  /// POST /workout/workoutsbytime â tarih aralÄ±ÄÄ±ndaki antrenmanlar.
+  /// KoÃ§ rolÃ¼nde [studentId] zorunlu.
   Future<ApiResult<List<Workout>>> getWorkoutsByDate({
     required DateTime start,
     required DateTime end,
@@ -125,13 +129,16 @@ class WorkoutService {
       ..sort((a, b) {
         final aDate = a.date ?? DateTime(1970);
         final bDate = b.date ?? DateTime(1970);
-        return bDate.compareTo(aDate);
+        // Aynı ana düşen kayıtlarda sıra rastgele kalıyordu ve "önceki
+        // seans" yanlış seçiliyordu; büyük id her zaman daha yeni kayıt.
+        final byDate = bDate.compareTo(aDate);
+        return byDate != 0 ? byDate : b.id.compareTo(a.id);
       });
     return ApiResult.success<List<Workout>>(workouts);
   }
 
-  /// POST /workout/workout — tek antrenman detayı.
-  /// Backend öğrenci rolünde de `student_id` bekliyor.
+  /// POST /workout/workout â tek antrenman detayÄ±.
+  /// Backend Ã¶Ärenci rolÃ¼nde de `student_id` bekliyor.
   Future<ApiResult<Workout?>> getWorkoutDetail({
     required int workoutId,
     required int studentId,

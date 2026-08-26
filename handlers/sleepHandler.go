@@ -68,15 +68,44 @@ func (s *SleepS) AddSleep(c *gin.Context) {
 	bedTime, bedErr := time.Parse("2006-01-02 15:04:05", bedtime)
 	wakeTime, wakeError := time.Parse("2006-01-02 15:04:05", waketime)
 	if wakeError != nil {
-		c.JSON(400, gin.H{"error": "could not parse  wake_time"})
+		banner := "could not parse  wake_time"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
 	if bedErr != nil {
-		c.JSON(400, gin.H{"error": "could not parse bed_time"})
+		banner := "could not parse bed_time"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
 	if bedTime.After(wakeTime) {
-		c.JSON(400, gin.H{"error": "bed_time is in the future"})
+		banner := "bed_time is in the future"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+
+	if wakeTime.Sub(bedTime) > 24*time.Hour || bedTime.Equal(wakeTime) {
+		banner := "1 günden fazla uyuyamazsın"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
+		return
+	}
+	if bedTime.Equal(wakeTime) {
+		banner := "yatak ve uyanma zamanı eşit"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
+		})
 		return
 	}
 
@@ -88,59 +117,58 @@ func (s *SleepS) AddSleep(c *gin.Context) {
 
 	createErr := s.SleepRep.Create(sleep)
 	if createErr != nil {
-		banner:="internal error"
-		utils.Response(c,utils.ResponseS{
-		Status:false,
-		Banner:&banner,
+		banner := "internal error"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
 		})
 		return
 	}
 
-	banner:="success"
-	utils.Response(c,utils.ResponseS{
+	banner := "success"
+	utils.Response(c, utils.ResponseS{
 		Status: true,
 		Banner: &banner,
 		Data:   sleep,
-
 	})
 }
 func (s *SleepS) GetSleepByStudent(c *gin.Context) {
 	userID, statusId := c.Get("user_id")
 	if statusId == false {
-		banner:="could not get user_id"
-		utils.Response(c,utils.ResponseS{
-			Status:false,
-			Banner:&banner,
+		banner := "could not get user_id"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
 		})
 		return
 	}
 
 	userId, ok := userID.(uint)
 	if ok == false {
-		banner:="internal error"
-		utils.Response(c,utils.ResponseS{
-			Status:false,
-			Banner:&banner,
+		banner := "internal error"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
 		})
 		return
 	}
 
 	role, statusRole := c.Get("role")
 	if statusRole == false {
-		banner:="internal error"
-		utils.Response(c,utils.ResponseS{
-			Status:false,
-			Banner:&banner,
+		banner := "internal error"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
 		})
 		return
 	}
 
 	Role, converted := role.(entities.Role)
 	if converted == false {
-		banner:="internal error"
-		utils.Response(c,utils.ResponseS{
-			Status:false,
-			Banner:&banner,
+		banner := "internal error"
+		utils.Response(c, utils.ResponseS{
+			Status: false,
+			Banner: &banner,
 		})
 		return
 	}
@@ -191,7 +219,7 @@ func (s *SleepS) GetSleepByStudent(c *gin.Context) {
 	if Role == "Student" {
 		sleep, dbError := s.SleepRep.FindByStudent(userId)
 		if dbError != nil {
-			banner:="hata"
+			banner := "hata"
 			utils.Response(c, utils.ResponseS{
 				Status: false,
 				Banner: &banner,
@@ -199,10 +227,11 @@ func (s *SleepS) GetSleepByStudent(c *gin.Context) {
 			return
 		}
 
-	banner:="sleep is found"
+		banner := "sleep is found"
 		utils.Response(c, utils.ResponseS{
 			Status: true,
 			Banner: &banner,
 			Data:   sleep,
-		})	}
+		})
+	}
 }

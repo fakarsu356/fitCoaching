@@ -14,14 +14,14 @@ import '../student/workout_progress.dart';
 import '../widgets/common.dart';
 import 'workout_editor_sheet.dart';
 
-/// Koçun tek bir öğrenciyi izlediği ekran; üç sekme.
+/// KoÃ§un tek bir Ã¶Ärenciyi izlediÄi ekran; Ã¼Ã§ sekme.
 ///
-/// Profil sekmesi öğrencinin genel bilgilerini, belgelerini ve fotoğraflarını
-/// taşıyor. Genel bilgiler veri sekmelerinde tekrar edilmiyor: koç günlük
-/// kayıtlara bakarken ekranın üstünü sabit bir kart yemesin.
+/// Profil sekmesi Ã¶Ärencinin genel bilgilerini, belgelerini ve fotoÄraflarÄ±nÄ±
+/// taÅÄ±yor. Genel bilgiler veri sekmelerinde tekrar edilmiyor: koÃ§ gÃ¼nlÃ¼k
+/// kayÄ±tlara bakarken ekranÄ±n Ã¼stÃ¼nÃ¼ sabit bir kart yemesin.
 ///
-/// Her şey salt okunur — koçun buradan yapabildiği tek yazma işlemi yeni
-/// program göndermek; öğün/uyku kayıtlarını yalnızca öğrenci girebiliyor.
+/// Her Åey salt okunur â koÃ§un buradan yapabildiÄi tek yazma iÅlemi yeni
+/// program gÃ¶ndermek; Ã¶ÄÃ¼n/uyku kayÄ±tlarÄ±nÄ± yalnÄ±zca Ã¶Ärenci girebiliyor.
 class CoachStudentDetailScreen extends StatefulWidget {
   const CoachStudentDetailScreen({super.key, required this.student});
 
@@ -34,8 +34,8 @@ class CoachStudentDetailScreen extends StatefulWidget {
 
 class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
     with SingleTickerProviderStateMixin {
-  /// Antrenman sekmesi tek güne değil bir pencereye bakıyor. İleriye de
-  /// bakılıyor çünkü koç ileri bir güne program yazabiliyor.
+  /// Antrenman sekmesi tek gÃ¼ne deÄil bir pencereye bakÄ±yor. Ä°leriye de
+  /// bakÄ±lÄ±yor Ã§Ã¼nkÃ¼ koÃ§ ileri bir gÃ¼ne program yazabiliyor.
   static const Duration _workoutWindow = Duration(days: 30);
 
   late final TabController _tabs;
@@ -45,23 +45,23 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
   List<Workout>? _workouts;
   List<Meal>? _meals;
 
-  /// Tüm uyku kayıtları (yeniden eskiye). Seçili günün kaydı ve kıyas için bir
-  /// öncekisi buradan bulunur — öğrenci tarafındaki günlük ekranıyla aynı kural.
+  /// TÃ¼m uyku kayÄ±tlarÄ± (yeniden eskiye). SeÃ§ili gÃ¼nÃ¼n kaydÄ± ve kÄ±yas iÃ§in bir
+  /// Ã¶ncekisi buradan bulunur â Ã¶Ärenci tarafÄ±ndaki gÃ¼nlÃ¼k ekranÄ±yla aynÄ± kural.
   List<Sleep>? _sleepRecords;
 
   List<DocumentItem>? _documents;
   bool _documentsLoading = true;
 
-  /// İndirilen görseller sekme değiştikçe yeniden çekilmesin diye belge
-  /// kimliğine göre saklanıyor; indirilemeyen için null yazılıyor ki tekrar
+  /// Ä°ndirilen gÃ¶rseller sekme deÄiÅtikÃ§e yeniden Ã§ekilmesin diye belge
+  /// kimliÄine gÃ¶re saklanÄ±yor; indirilemeyen iÃ§in null yazÄ±lÄ±yor ki tekrar
   /// denenmesin.
   final Map<int, Uint8List?> _imageCache = {};
 
   bool _loading = true;
   String? _error;
 
-  /// Art arda gün değiştirildiğinde önceki isteğin geç gelen cevabı ekrana
-  /// yazılmasın diye her yüklemeye sıra numarası veriliyor.
+  /// Art arda gÃ¼n deÄiÅtirildiÄinde Ã¶nceki isteÄin geÃ§ gelen cevabÄ± ekrana
+  /// yazÄ±lmasÄ±n diye her yÃ¼klemeye sÄ±ra numarasÄ± veriliyor.
   int _requestId = 0;
 
   int get _studentId => widget.student.userId;
@@ -71,8 +71,8 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
   @override
   void initState() {
     super.initState();
-    // Program yaz butonu yalnızca Antrenman sekmesinde görünsün diye sekme
-    // değişimi dinleniyor.
+    // Program yaz butonu yalnÄ±zca Antrenman sekmesinde gÃ¶rÃ¼nsÃ¼n diye sekme
+    // deÄiÅimi dinleniyor.
     _tabs = TabController(length: 3, vsync: this)
       ..addListener(() => setState(() {}));
     _load();
@@ -94,7 +94,7 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
 
     final services = context.read<AppServices>();
     final now = DateTime.now();
-    // Üç uç de bağımsız; birlikte başlatılıp birlikte bekleniyor.
+    // ÃÃ§ uÃ§ de baÄÄ±msÄ±z; birlikte baÅlatÄ±lÄ±p birlikte bekleniyor.
     final workoutFuture = services.workouts.getWorkoutsByDate(
       start: now.subtract(_workoutWindow),
       end: now.add(_workoutWindow),
@@ -118,16 +118,16 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
       _meals = mealResult.data ?? const <Meal>[];
       _sleepRecords = sleepResult.data ?? const <Sleep>[];
 
-      // Üçü birden başarısızsa ekranı hata durumuna al; biri boş dönerse
-      // diğer bölümler yine gösterilir.
+      // ÃÃ§Ã¼ birden baÅarÄ±sÄ±zsa ekranÄ± hata durumuna al; biri boÅ dÃ¶nerse
+      // diÄer bÃ¶lÃ¼mler yine gÃ¶sterilir.
       if (!workoutResult.ok && !mealResult.ok && !sleepResult.ok) {
         _error = workoutResult.errorMessage;
       }
     });
   }
 
-  /// Belgeler güne bağlı olmadığı için gün değiştikçe değil, yalnızca ekran
-  /// açılırken ve profil sekmesi aşağı çekildiğinde yükleniyor.
+  /// Belgeler gÃ¼ne baÄlÄ± olmadÄ±ÄÄ± iÃ§in gÃ¼n deÄiÅtikÃ§e deÄil, yalnÄ±zca ekran
+  /// aÃ§Ä±lÄ±rken ve profil sekmesi aÅaÄÄ± Ã§ekildiÄinde yÃ¼kleniyor.
   Future<void> _loadDocuments() async {
     setState(() => _documentsLoading = true);
     final result = await context.read<AppServices>().documents.getList(
@@ -175,7 +175,7 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
       initialStudent: widget.student,
     );
     if (saved && mounted) {
-      showAppSnack(context, 'Program gönderildi');
+      showAppSnack(context, 'Program gÃ¶nderildi');
       await _load();
     }
   }
@@ -184,7 +184,7 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
     final bytes = await _imageBytes(document.id);
     if (!mounted) return;
     if (bytes == null) {
-      showAppSnack(context, 'Resim açılamadı');
+      showAppSnack(context, 'Resim aÃ§Ä±lamadÄ±');
       return;
     }
     await showDialog<void>(
@@ -208,10 +208,10 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
     );
   }
 
-  /// Seçili güne ait uyku kaydı ve ondan bir önceki kayıt.
+  /// SeÃ§ili gÃ¼ne ait uyku kaydÄ± ve ondan bir Ã¶nceki kayÄ±t.
   ///
-  /// Liste yeniden eskiye sıralı olduğu için "önceki", bulunan kaydın hemen
-  /// sonrasındaki eleman oluyor.
+  /// Liste yeniden eskiye sÄ±ralÄ± olduÄu iÃ§in "Ã¶nceki", bulunan kaydÄ±n hemen
+  /// sonrasÄ±ndaki eleman oluyor.
   (Sleep?, Sleep?) _sleepOfDay() {
     final records = _sleepRecords;
     if (records == null) return (null, null);
@@ -277,14 +277,14 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
           const SizedBox(height: AppSizes.gapLarge),
           const SectionTitle(
             'Belgeler',
-            subtitle: 'Öğrencinin yüklediği tahlil ve raporlar.',
+            subtitle: 'ÃÄrencinin yÃ¼klediÄi tahlil ve raporlar.',
           ),
           if (_documentsLoading)
             const _SectionSkeleton()
           else if (files.isEmpty)
             const _EmptyCard(
               icon: Icons.description_outlined,
-              message: 'Yüklenmiş belge yok.',
+              message: 'YÃ¼klenmiÅ belge yok.',
             )
           else
             for (final document in files) ...[
@@ -294,14 +294,14 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
           const SizedBox(height: AppSizes.gapLarge),
           const SectionTitle(
             'Resimler',
-            subtitle: 'Gelişim ve öğün fotoğrafları — kontrol için.',
+            subtitle: 'GeliÅim ve Ã¶ÄÃ¼n fotoÄraflarÄ± â kontrol iÃ§in.',
           ),
           if (_documentsLoading)
             const _SectionSkeleton()
           else if (images.isEmpty)
             const _EmptyCard(
               icon: Icons.image_outlined,
-              message: 'Yüklenmiş resim yok.',
+              message: 'YÃ¼klenmiÅ resim yok.',
             )
           else
             _ImageGrid(images: images, loader: _imageBytes, onOpen: _openImage),
@@ -323,7 +323,7 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
             day: _day,
             onPrevious: () => _shiftDay(-1),
             onPick: _pickDay,
-            // Geleceğe gidilemiyor: o günlerin kaydı zaten olamaz.
+            // GeleceÄe gidilemiyor: o gÃ¼nlerin kaydÄ± zaten olamaz.
             onNext: _isToday ? null : () => _shiftDay(1),
           ),
           if (_error != null) ...[
@@ -346,6 +346,16 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
     );
   }
 
+  /// ÃÄrencinin gerÃ§ekten yaptÄ±ÄÄ± seanslar (yeniden eskiye). KÄ±yas yalnÄ±zca
+  /// bunlar Ã¼zerinden kurulur; koÃ§un yazdÄ±ÄÄ± hedef deÄerler "Ã¶nceki seans"
+  /// sayÄ±lmaz â Ã¶Ärenci ekranÄ±ndaki kuralÄ±n aynÄ±sÄ±.
+  List<Workout> get _studentSessions {
+    return [
+      for (final workout in _workouts ?? const <Workout>[])
+        if (workout.byStudent) workout,
+    ];
+  }
+
   Widget _workoutTab() {
     return RefreshIndicator(
       onRefresh: _load,
@@ -360,13 +370,18 @@ class _CoachStudentDetailScreenState extends State<CoachStudentDetailScreen>
           if (_error != null)
             ErrorState(message: _error!, onRetry: _load)
           else
-            _WorkoutSection(workouts: _workouts, loading: _loading),
+            _WorkoutSection(
+              workouts: _workouts,
+              progress: WorkoutProgress(_studentSessions),
+              loading: _loading,
+            ),
         ],
       ),
     );
   }
 }
-/// Öğrencinin sabit vücut bilgileri.
+
+/// ÃÄrencinin sabit vÃ¼cut bilgileri.
 class _StudentSummaryCard extends StatelessWidget {
   const _StudentSummaryCard({required this.student});
 
@@ -389,7 +404,7 @@ class _StudentSummaryCard extends StatelessWidget {
             children: [
               Expanded(
                 child: MetricTile(
-                  label: 'Yaş',
+                  label: 'YaÅ',
                   value: student.age > 0 ? student.age.toString() : '-',
                 ),
               ),
@@ -420,7 +435,7 @@ class _StudentSummaryCard extends StatelessWidget {
             children: [
               Expanded(
                 child: MetricTile(
-                  label: 'Yağ oranı',
+                  label: 'YaÄ oranÄ±',
                   value: student.fatPercentage > 0
                       ? formatNumber(student.fatPercentage)
                       : '-',
@@ -430,12 +445,12 @@ class _StudentSummaryCard extends StatelessWidget {
               const SizedBox(width: AppSizes.gapSmall),
               Expanded(
                 child: MetricTile(
-                  label: 'VKİ',
+                  label: 'VKÄ°',
                   value: bmi == null ? '-' : formatNumber(bmi),
                 ),
               ),
-              // Üçüncü sütun boş bırakıldı: kutular üstteki satırla aynı
-              // genişlikte kalsın, iki satır kaymasın.
+              // ÃÃ§Ã¼ncÃ¼ sÃ¼tun boÅ bÄ±rakÄ±ldÄ±: kutular Ã¼stteki satÄ±rla aynÄ±
+              // geniÅlikte kalsÄ±n, iki satÄ±r kaymasÄ±n.
               const Expanded(child: SizedBox.shrink()),
             ],
           ),
@@ -446,9 +461,14 @@ class _StudentSummaryCard extends StatelessWidget {
 }
 
 class _WorkoutSection extends StatelessWidget {
-  const _WorkoutSection({required this.workouts, required this.loading});
+  const _WorkoutSection({
+    required this.workouts,
+    required this.progress,
+    required this.loading,
+  });
 
   final List<Workout>? workouts;
+  final WorkoutProgress progress;
   final bool loading;
 
   @override
@@ -459,14 +479,17 @@ class _WorkoutSection extends StatelessWidget {
     if (list.isEmpty) {
       return const _EmptyCard(
         icon: Icons.fitness_center_outlined,
-        message: 'Bu güne ait antrenman kaydı yok.',
+        message: 'Bu gÃ¼ne ait antrenman kaydÄ± yok.',
       );
     }
 
     return Column(
       children: [
         for (final workout in list) ...[
-          _WorkoutCard(workout: workout),
+          _WorkoutCard(
+            workout: workout,
+            previousSets: progress.previousSetsFor(workout),
+          ),
           const SizedBox(height: AppSizes.gapSmall),
         ],
       ],
@@ -475,9 +498,12 @@ class _WorkoutSection extends StatelessWidget {
 }
 
 class _WorkoutCard extends StatelessWidget {
-  const _WorkoutCard({required this.workout});
+  const _WorkoutCard({required this.workout, required this.previousSets});
 
   final Workout workout;
+
+  /// AynÄ± programÄ±n Ã¶nceki seansÄ±ndaki setler; [setKey] ile anahtarlÄ±.
+  final Map<String, WorkoutSet> previousSets;
 
   @override
   Widget build(BuildContext context) {
@@ -491,9 +517,9 @@ class _WorkoutCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  // Öğrencinin kaydı ile koçun planı aynı listede geliyor;
-                  // hangisi olduğu ayırt edilmezse kartlar birbirine karışır.
-                  workout.byStudent ? 'Öğrencinin kaydı' : 'Koç planı',
+                  // ÃÄrencinin kaydÄ± ile koÃ§un planÄ± aynÄ± listede geliyor;
+                  // hangisi olduÄu ayÄ±rt edilmezse kartlar birbirine karÄ±ÅÄ±r.
+                  workout.byStudent ? 'ÃÄrencinin kaydÄ±' : 'KoÃ§ planÄ±',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -505,8 +531,10 @@ class _WorkoutCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${AppDate.time(workout.date)} · ${byMovement.length} hareket · '
-            '${workout.totalSets} set',
+            // Program adÄ± Ã¶Ärencinin kaydÄ±na da devrediyor; hangi programÄ±n
+            // seansÄ± olduÄu karttan gÃ¶rÃ¼nsÃ¼n.
+            '${workout.displayName} Â· ${AppDate.time(workout.date)} Â· '
+            '${byMovement.length} hareket Â· ${workout.totalSets} set',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (workout.notes.trim().isNotEmpty) ...[
@@ -516,28 +544,82 @@ class _WorkoutCard extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
+          // YalnÄ±zca Ã¶Ärencinin kaydÄ±nda: koÃ§un yazdÄ±ÄÄ± plan henÃ¼z bir sonuÃ§
+          // deÄil, onu geÃ§en seansla kÄ±yaslamak yanÄ±ltÄ±cÄ± olur.
+          if (workout.byStudent) ...[
+            const SizedBox(height: AppSizes.gapSmall),
+            SessionProgressBanner(
+              comparison: SessionComparison.of(workout, previousSets),
+            ),
+          ],
           for (final entry in byMovement.entries) ...[
             const SizedBox(height: AppSizes.gapSmall),
             Text(entry.key, style: Theme.of(context).textTheme.titleSmall),
             for (final set in entry.value)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: AppSizes.setLabelWidth,
-                      child: Text(
-                        'Set ${set.setNumber}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                    Text(
-                      setLineShort(set),
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
+              _CoachSetRow(
+                set: set,
+                previous: previousSets[setKey(set.movementName, set.setNumber)],
+                showDiff: workout.byStudent,
               ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// KoÃ§ tarafÄ±ndaki set satÄ±rÄ±: yapÄ±lan set, altÄ±nda Ã¶nceki seansÄ±n rakamÄ± ve
+/// saÄda fark rozeti. ÃÄrenci ekranÄ±ndaki satÄ±rla aynÄ± dÃ¼zen.
+class _CoachSetRow extends StatelessWidget {
+  const _CoachSetRow({
+    required this.set,
+    required this.previous,
+    required this.showDiff,
+  });
+
+  final WorkoutSet set;
+  final WorkoutSet? previous;
+
+  /// Fark rozeti yalnızca öğrencinin kaydında çizilir. Plan bir sonuç değil
+  /// hedef; planı geçen seansla kıyaslamak öğrenci hedefin üstüne çıktığında
+  /// planın üzerine kırmızı "düştü" rozeti basıyordu.
+  final bool showDiff;
+
+  @override
+  Widget build(BuildContext context) {
+    final before = previous;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: AppSizes.setLabelWidth,
+            child: Text(
+              'Set ${set.setNumber}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  setLineShort(set),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                if (before != null)
+                  Text(
+                    'Ã¶nceki ${setLineShort(before)}',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+              ],
+            ),
+          ),
+          if (showDiff) ...[
+            const SizedBox(width: AppSizes.gapSmall),
+            SetDiffBadges(weight: set.weight, reps: set.reps, previous: before),
           ],
         ],
       ),
@@ -559,13 +641,13 @@ class _MealSection extends StatelessWidget {
     if (list.isEmpty) {
       return const _EmptyCard(
         icon: Icons.restaurant_outlined,
-        message: 'Bu güne ait öğün kaydı yok.',
+        message: 'Bu gÃ¼ne ait Ã¶ÄÃ¼n kaydÄ± yok.',
       );
     }
 
-    // Toplamlar burada hesaplanıyor: /meal/dailyMeals ucu geçmiş tarih şartı
-    // koyduğu için bugün seçiliyken kullanılamıyor, aynı sayıyı iki farklı
-    // yoldan almak da tutarsızlık riski.
+    // Toplamlar burada hesaplanÄ±yor: /meal/dailyMeals ucu geÃ§miÅ tarih ÅartÄ±
+    // koyduÄu iÃ§in bugÃ¼n seÃ§iliyken kullanÄ±lamÄ±yor, aynÄ± sayÄ±yÄ± iki farklÄ±
+    // yoldan almak da tutarsÄ±zlÄ±k riski.
     double kcal = 0, protein = 0, karb = 0, oil = 0, lif = 0;
     for (final meal in list) {
       kcal += meal.kcal;
@@ -612,7 +694,7 @@ class _MealSection extends StatelessWidget {
                 children: [
                   Expanded(
                     child: MetricTile(
-                      label: 'Yağ',
+                      label: 'YaÄ',
                       value: formatNumber(oil),
                       unit: 'g',
                     ),
@@ -644,14 +726,14 @@ class _MealSection extends StatelessWidget {
                     children: [
                       Text(
                         meal.mealName.trim().isEmpty
-                            ? 'Öğün'
+                            ? 'ÃÄÃ¼n'
                             : meal.mealName.trim(),
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${AppDate.time(meal.date)} · '
-                        '${formatNumber(meal.kcal)} kcal · '
+                        '${AppDate.time(meal.date)} Â· '
+                        '${formatNumber(meal.kcal)} kcal Â· '
                         'P ${formatNumber(meal.protein)}g',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
@@ -687,7 +769,7 @@ class _SleepSection extends StatelessWidget {
     if (record == null) {
       return const _EmptyCard(
         icon: Icons.bedtime_outlined,
-        message: 'Bu güne ait uyku kaydı yok.',
+        message: 'Bu gÃ¼ne ait uyku kaydÄ± yok.',
       );
     }
 
@@ -734,7 +816,7 @@ class _SleepSection extends StatelessWidget {
   }
 }
 
-/// Bir önceki uyku kaydına göre fark — öğrenci tarafındaki kıyasla aynı kural.
+/// Bir Ã¶nceki uyku kaydÄ±na gÃ¶re fark â Ã¶Ärenci tarafÄ±ndaki kÄ±yasla aynÄ± kural.
 class _SleepComparison extends StatelessWidget {
   const _SleepComparison({required this.minutes});
 
@@ -744,7 +826,7 @@ class _SleepComparison extends StatelessWidget {
   Widget build(BuildContext context) {
     if (minutes == 0) {
       return Text(
-        'Önceki uykuyla aynı süre',
+        'Ãnceki uykuyla aynÄ± sÃ¼re',
         style: Theme.of(context).textTheme.bodySmall,
       );
     }
@@ -765,7 +847,7 @@ class _SleepComparison extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          'Önceki uykudan $gap ${up ? 'fazla' : 'az'}',
+          'Ãnceki uykudan $gap ${up ? 'fazla' : 'az'}',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -791,10 +873,7 @@ class _EmptyCard extends StatelessWidget {
           Icon(icon, size: 20, color: AppColors.textMuted),
           const SizedBox(width: AppSizes.gapSmall),
           Expanded(
-            child: Text(
-              message,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            child: Text(message, style: Theme.of(context).textTheme.bodySmall),
           ),
         ],
       ),
@@ -802,8 +881,8 @@ class _EmptyCard extends StatelessWidget {
   }
 }
 
-/// Bölümlerin ortak iskeleti: gün değişirken kartın yeri korunsun diye
-/// yükseklik sabit.
+/// BÃ¶lÃ¼mlerin ortak iskeleti: gÃ¼n deÄiÅirken kartÄ±n yeri korunsun diye
+/// yÃ¼kseklik sabit.
 class _SectionSkeleton extends StatelessWidget {
   const _SectionSkeleton();
 
@@ -824,10 +903,10 @@ class _SectionSkeleton extends StatelessWidget {
   }
 }
 
-/// Öğrencinin yüklediği resim dışı belge (tahlil, rapor).
+/// ÃÄrencinin yÃ¼klediÄi resim dÄ±ÅÄ± belge (tahlil, rapor).
 ///
-/// Liste ucu dosya içeriğini göndermediği için burada önizleme yok; koç
-/// belgenin varlığını, türünü ve tarihini görüyor.
+/// Liste ucu dosya iÃ§eriÄini gÃ¶ndermediÄi iÃ§in burada Ã¶nizleme yok; koÃ§
+/// belgenin varlÄ±ÄÄ±nÄ±, tÃ¼rÃ¼nÃ¼ ve tarihini gÃ¶rÃ¼yor.
 class _StudentDocumentTile extends StatelessWidget {
   const _StudentDocumentTile({required this.document});
 
@@ -869,7 +948,7 @@ class _StudentDocumentTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${document.typeLabel} · ${AppDate.short(document.date)}',
+                  '${document.typeLabel} Â· ${AppDate.short(document.date)}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -881,7 +960,7 @@ class _StudentDocumentTile extends StatelessWidget {
   }
 }
 
-/// Gelişim/öğün fotoğrafları. Üçlü ızgara, dokununca tam boy açılıyor.
+/// GeliÅim/Ã¶ÄÃ¼n fotoÄraflarÄ±. ÃÃ§lÃ¼ Ä±zgara, dokununca tam boy aÃ§Ä±lÄ±yor.
 class _ImageGrid extends StatelessWidget {
   const _ImageGrid({
     required this.images,
@@ -891,8 +970,8 @@ class _ImageGrid extends StatelessWidget {
 
   final List<DocumentItem> images;
 
-  /// Bayt indirmeyi ekranın state'ine bırakıyoruz ki önbellek sekmeler
-  /// arasında korunsun.
+  /// Bayt indirmeyi ekranÄ±n state'ine bÄ±rakÄ±yoruz ki Ã¶nbellek sekmeler
+  /// arasÄ±nda korunsun.
   final Future<Uint8List?> Function(int fileId) loader;
   final void Function(DocumentItem document) onOpen;
 
@@ -949,7 +1028,7 @@ class _ImageTile extends StatelessWidget {
               }
               final bytes = snapshot.data;
               if (bytes == null) {
-                // İndirilemeyen görsel ızgarada boşluk bırakmasın diye yerine
+                // Ä°ndirilemeyen gÃ¶rsel Ä±zgarada boÅluk bÄ±rakmasÄ±n diye yerine
                 // bir simge konuyor.
                 return const Center(
                   child: Icon(

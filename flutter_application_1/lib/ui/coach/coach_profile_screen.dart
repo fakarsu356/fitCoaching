@@ -11,7 +11,9 @@ import '../../models/tracking.dart';
 import '../../services/services.dart';
 import '../../state/auth_controller.dart';
 import '../student/coach_card.dart';
+import '../widgets/change_password_sheet.dart';
 import '../widgets/common.dart';
+import '../widgets/document_preview.dart';
 
 /// Koçun kendi profili.
 ///
@@ -32,10 +34,63 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
   String? _error;
   bool _loading = true;
 
+  /// Sertifika dışındaki belgelerin içeriği profil ucundan gelmiyor; tıklanınca
+  /// `/document/getDocument` ile indirilip burada saklanıyor.
+  late final DocumentBytesCache _bytesCache;
+
   @override
   void initState() {
     super.initState();
+    _bytesCache = DocumentBytesCache((fileId) async {
+      final result = await context.read<AppServices>().documents.download(
+        fileId,
+      );
+      return result.ok ? result.data : null;
+    });
     _load();
+  }
+
+  /// Sertifikanın içeriği profil ucuyla birlikte geliyor, indirmeye gerek yok.
+  Future<void> _openCertificate(CoachDocument document) {
+    return showDocumentPreview(
+      context,
+      title: document.displayName,
+      subtitle: document.sizeLabel,
+      bytes: document.bytes,
+      isImage: document.isImage,
+    );
+  }
+
+  Future<void> _openDocument(DocumentItem document) async {
+    final name = document.docName.trim().isEmpty
+        ? 'Belge #${document.id}'
+        : document.docName.trim();
+
+    if (!document.isImage) {
+      // İndirmeye gerek yok: önizleyemeyeceğimizi zaten biliyoruz.
+      await showDocumentPreview(
+        context,
+        title: name,
+        subtitle: document.typeLabel,
+        bytes: null,
+        isImage: false,
+      );
+      return;
+    }
+
+    final bytes = await _bytesCache.bytesOf(document.id);
+    if (!mounted) return;
+    if (bytes == null) {
+      showDocumentError(context);
+      return;
+    }
+    await showDocumentPreview(
+      context,
+      title: name,
+      subtitle: '${document.typeLabel} · ${AppDate.short(document.date)}',
+      bytes: bytes,
+      isImage: true,
+    );
   }
 
   Future<void> _load() async {
@@ -77,6 +132,13 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
         _error = result.errorMessage;
       }
     });
+  }
+
+  Future<void> _changePassword() async {
+    final changed = await showChangePasswordSheet(context);
+    if (changed && mounted) {
+      showAppSnack(context, 'Şifren değiştirildi');
+    }
   }
 
   Future<void> _signOut() async {
@@ -135,7 +197,10 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                 )
               else
                 for (final document in coach.documents) ...[
-                  _CertificateTile(document: document),
+                  _CertificateTile(
+                    document: document,
+                    onOpen: () => _openCertificate(document),
+                  ),
                   const SizedBox(height: AppSizes.gapSmall),
                 ],
               if (_otherDocuments.isNotEmpty) ...[
@@ -145,7 +210,10 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                   subtitle: 'CV gibi yalnızca sana görünen belgeler.',
                 ),
                 for (final document in _otherDocuments) ...[
-                  _DocumentTile(document: document),
+                  _DocumentTile(
+                    document: document,
+                    onOpen: () => _openDocument(document),
+                  ),
                   const SizedBox(height: AppSizes.gapSmall),
                 ],
               ],
@@ -161,6 +229,12 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                 ),
               ),
               const SizedBox(height: AppSizes.gap),
+              OutlinedButton.icon(
+                onPressed: _changePassword,
+                icon: const Icon(Icons.lock_outline, size: 18),
+                label: const Text('Şifre değiştir'),
+              ),
+              const SizedBox(height: AppSizes.gapSmall),
               OutlinedButton.icon(
                 onPressed: _signOut,
                 style: OutlinedButton.styleFrom(
@@ -197,10 +271,7 @@ class _Header extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CoachAvatar(
-                name: coach.displayName,
-                size: AppSizes.avatar * 1.5,
-              ),
+              CoachAvatar(name: coach.displayName, size: AppSizes.avatar * 1.5),
               const SizedBox(width: AppSizes.gapSmall + 4),
               Expanded(
                 child: Column(
@@ -290,32 +361,26 @@ class _Capacity extends StatelessWidget {
   }
 }
 
-/// Tek sertifika satırı. Önizleme yalnızca çözülmüş görsellerde açılıyor.
+/// Tek sertifika satırı. İçerik profil ucuyla birlikte geldiği için resimler
+/// dokununca hemen açılıyor.
 class _CertificateTile extends StatelessWidget {
-  const _CertificateTile({required this.document});
+  const _CertificateTile({required this.document, required this.onOpen});
 
   final CoachDocument document;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
       padding: const EdgeInsets.all(AppSizes.cardPaddingCompact),
+      onTap: onOpen,
       child: Row(
         children: [
-          Container(
-            width: AppSizes.avatar,
-            height: AppSizes.avatar,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceMuted,
-              borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
-            ),
-            child: Icon(
-              document.isPdf
-                  ? Icons.picture_as_pdf_outlined
-                  : Icons.workspace_premium_outlined,
-              size: 20,
-              color: AppColors.textSecondary,
-            ),
+          DocumentThumbnail(
+            icon: document.isPdf
+                ? Icons.picture_as_pdf_outlined
+                : Icons.workspace_premium_outlined,
+            bytes: document.hasPreview ? document.bytes : null,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -336,6 +401,7 @@ class _CertificateTile extends StatelessWidget {
               ],
             ),
           ),
+          const Icon(Icons.chevron_right, size: 20, color: AppColors.textMuted),
         ],
       ),
     );
@@ -343,32 +409,24 @@ class _CertificateTile extends StatelessWidget {
 }
 
 /// Sertifika dışındaki belgeler. Profil ucu bunların içeriğini göndermediği
-/// için önizleme yok; ad, tür ve tarih gösteriliyor.
+/// için dokununca `/document/getDocument` ile indirilip açılıyor.
 class _DocumentTile extends StatelessWidget {
-  const _DocumentTile({required this.document});
+  const _DocumentTile({required this.document, required this.onOpen});
 
   final DocumentItem document;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
       padding: const EdgeInsets.all(AppSizes.cardPaddingCompact),
+      onTap: onOpen,
       child: Row(
         children: [
-          Container(
-            width: AppSizes.avatar,
-            height: AppSizes.avatar,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceMuted,
-              borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
-            ),
-            child: Icon(
-              document.isPdf
-                  ? Icons.picture_as_pdf_outlined
-                  : Icons.description_outlined,
-              size: 20,
-              color: AppColors.textSecondary,
-            ),
+          DocumentThumbnail(
+            icon: document.isPdf
+                ? Icons.picture_as_pdf_outlined
+                : Icons.description_outlined,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -391,6 +449,7 @@ class _DocumentTile extends StatelessWidget {
               ],
             ),
           ),
+          const Icon(Icons.chevron_right, size: 20, color: AppColors.textMuted),
         ],
       ),
     );

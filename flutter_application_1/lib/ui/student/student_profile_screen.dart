@@ -5,12 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/date_fmt.dart';
+import '../../core/num_fmt.dart';
 import '../../core/theme.dart';
+import '../../core/validators.dart';
+import '../../models/relation.dart';
 import '../../models/tracking.dart';
 import '../../services/auth_service.dart';
 import '../../services/services.dart';
 import '../../state/auth_controller.dart';
+import '../widgets/change_password_sheet.dart';
 import '../widgets/common.dart';
+import 'coach_card.dart';
+import 'edit_student_metrics_sheet.dart';
 
 /// config.MaxFileSize ile aynı: 5 MB. Sunucuya gitmeden önce burada uyarılır.
 const int _maxFileSize = 5 * 1024 * 1024;
@@ -39,6 +45,11 @@ class StudentProfileScreen extends StatefulWidget {
 
 class _StudentProfileScreenState extends State<StudentProfileScreen> {
   List<DocumentItem>? _documents;
+
+  /// Kişisel bilgiler. `/profile/getStudent` yoksa ya da hata dönerse null
+  /// kalır ve o bölümler hiç çizilmez — ekranın geri kalanı çalışmaya devam
+  /// eder.
+  Student? _student;
   bool _loading = true;
   bool _uploading = false;
   String? _error;
@@ -59,10 +70,20 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
       _error = null;
     });
 
-    final result = await context.read<AppServices>().documents.getList();
+    final services = context.read<AppServices>();
+    // İki istek birlikte başlatılıyor: sırayla beklenirse ekran iki
+    // gidiş-dönüş boyu iskelette kalır.
+    final documentFuture = services.documents.getList();
+    final studentFuture = services.profiles.getStudentProfile();
+    final result = await documentFuture;
+    final studentResult = await studentFuture;
+
     if (!mounted) return;
     setState(() {
       _loading = false;
+      // Kişisel bilgiler gelmezse belge listesi yine gösterilir; profilin
+      // tamamını hataya düşürmek belgelere erişimi de keserdi.
+      _student = studentResult.ok ? studentResult.data : null;
       if (result.ok) {
         _documents = result.data ?? const <DocumentItem>[];
         // Liste yenilendiğinde silinmiş belgelerin baytları bellekte kalmasın.
@@ -71,6 +92,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
         _error = result.errorMessage;
       }
     });
+  }
+
+  Future<void> _editMetrics() async {
+    final student = _student;
+    if (student == null) return;
+    final updated = await showEditStudentMetricsSheet(context, student);
+    if (updated == null || !mounted) return;
+    setState(() => _student = updated);
+    showAppSnack(context, 'Ölçülerin güncellendi');
   }
 
   Future<Uint8List?> _imageBytes(int fileId) async {
@@ -169,6 +199,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     if (result.ok) await _load();
   }
 
+  Future<void> _changePassword() async {
+    final changed = await showChangePasswordSheet(context);
+    if (changed && mounted) {
+      showAppSnack(context, 'Şifren değiştirildi');
+    }
+  }
+
   Future<void> _signOut() async {
     final auth = context.read<AuthController>();
     final confirmed = await confirmDialog(
@@ -225,10 +262,20 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
             AppSizes.pagePadding + 72,
           ),
           children: [
-            const SectionTitle(
-              'Belgeler',
-              subtitle: 'Tahlil ve raporların.',
-            ),
+            if (_student != null) ...[
+              _ProfileHeader(student: _student!),
+              const SizedBox(height: AppSizes.gapLarge),
+              SectionTitle(
+                'Ölçülerin',
+                action: TextButton(
+                  onPressed: _editMetrics,
+                  child: const Text('Düzenle'),
+                ),
+              ),
+              _MetricsCard(student: _student!),
+              const SizedBox(height: AppSizes.gapLarge),
+            ],
+            const SectionTitle('Belgeler', subtitle: 'Tahlil ve raporların.'),
             if (_error != null)
               ErrorState(message: _error!, onRetry: _load)
             else if (_loading)
@@ -266,12 +313,26 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
             const SizedBox(height: AppSizes.gapLarge),
             const SectionTitle('Hesap'),
             AppCard(
-              child: InfoRow(
-                'Rol',
-                'Öğrenci',
+              child: Column(
+                children: [
+                  const InfoRow('Rol', 'Öğrenci'),
+                  if (_student != null) ...[
+                    const SizedBox(height: AppSizes.gapSmall),
+                    InfoRow(
+                      'E-posta',
+                      _student!.email.isEmpty ? '-' : _student!.email,
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(height: AppSizes.gap),
+            OutlinedButton.icon(
+              onPressed: _changePassword,
+              icon: const Icon(Icons.lock_outline, size: 18),
+              label: const Text('Şifre değiştir'),
+            ),
+            const SizedBox(height: AppSizes.gapSmall),
             OutlinedButton.icon(
               onPressed: _signOut,
               style: OutlinedButton.styleFrom(
@@ -465,6 +526,108 @@ class _ProfileSkeleton extends StatelessWidget {
           Skeleton(width: 180, height: 12),
         ],
       ),
+    );
+  }
+}
+
+/// Ad, rol ve temel bilgiler. Profilin en üstünde kimliğin görünmesi için;
+/// önceden ekran doğrudan belge listesiyle başlıyordu.
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.student});
+
+  final Student student;
+
+  @override
+  Widget build(BuildContext context) {
+    // Yaş ve cinsiyet tek satırda; ikisi de boşsa satır hiç çizilmez.
+    final details = [
+      if (student.age > 0) '${student.age} yaş',
+      if (student.gender.isNotEmpty) Gender.label(student.gender),
+    ].join(' · ');
+
+    return AppCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CoachAvatar(name: student.displayName, size: AppSizes.avatar * 1.5),
+          const SizedBox(width: AppSizes.gapSmall + 4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  student.displayName,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                if (details.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(details, style: Theme.of(context).textTheme.bodySmall),
+                ],
+                const SizedBox(height: AppSizes.gapSmall),
+                const StatusPill.info('Öğrenci'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Kilo, yağ oranı, boy ve VKİ.
+///
+/// VKİ ayrıca gönderilmiyor, kilo ve boydan hesaplanıyor ([Student.bmi]);
+/// ikisinden biri eksikse kutu "-" gösterir.
+class _MetricsCard extends StatelessWidget {
+  const _MetricsCard({required this.student});
+
+  final Student student;
+
+  @override
+  Widget build(BuildContext context) {
+    final bmi = student.bmi;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: MetricTile(
+                label: 'Kilo',
+                value: formatNumber(student.bodyWeight),
+                unit: 'kg',
+              ),
+            ),
+            const SizedBox(width: AppSizes.gapSmall),
+            Expanded(
+              child: MetricTile(
+                label: 'Yağ oranı',
+                value: formatNumber(student.fatPercentage),
+                unit: '%',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSizes.gapSmall),
+        Row(
+          children: [
+            Expanded(
+              child: MetricTile(
+                label: 'Boy',
+                value: formatNumber(student.bodyHeight),
+                unit: 'cm',
+              ),
+            ),
+            const SizedBox(width: AppSizes.gapSmall),
+            Expanded(
+              child: MetricTile(
+                label: 'VKİ',
+                value: bmi == null ? '-' : formatNumber(bmi),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

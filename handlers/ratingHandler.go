@@ -92,6 +92,7 @@ func (r *RatingS) AddRating(c *gin.Context) {
 			Status: false,
 			Banner: &banner,
 		})
+		return
 	}
 
 	rating := entities.Rating{

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/num_fmt.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../core/validators.dart';
 import '../../models/workout.dart';
 import '../../services/services.dart';
 import '../widgets/common.dart';
@@ -82,14 +83,21 @@ class _CompleteWorkoutSheetState extends State<_CompleteWorkoutSheet> {
 
   int? _repsAt(int index) {
     final value = int.tryParse(_reps[index].text.trim());
-    return (value == null || value <= 0) ? null : value;
+    if (value == null || value <= 0 || value > Validators.maxReps) return null;
+    return value;
   }
 
+  /// Ağırlık kutusu boş bırakılabilir: şınav/mekik gibi hareketlerde vücut
+  /// ağırlığı kullanılır, o setler 0 kg olarak kaydedilir. Virgül de nokta da
+  /// kabul edilir ("82,5" = "82.5").
   double? _weightAt(int index) {
-    final value = double.tryParse(
-      _weights[index].text.trim().replaceAll(',', '.'),
-    );
-    return (value == null || value < 0) ? null : value;
+    final text = _weights[index].text.trim().replaceAll(',', '.');
+    if (text.isEmpty) return 0;
+    final value = double.tryParse(text);
+    if (value == null || value < 0 || value > Validators.maxSetWeight) {
+      return null;
+    }
+    return value;
   }
 
   Future<void> _submit() async {
@@ -110,8 +118,24 @@ class _CompleteWorkoutSheetState extends State<_CompleteWorkoutSheet> {
     for (var i = 0; i < widget.plan.sets.length; i++) {
       final reps = _repsAt(i);
       final weight = _weightAt(i);
-      if (reps == null || weight == null) {
-        setState(() => _error = 'Tekrar ve ağırlık değerlerini kontrol et');
+      // Hangi sette ne yanlış, tek tek söylenir; tek satırlık genel uyarı
+      // uzun listelerde hatalı seti bulmayı imkânsız kılıyordu.
+      final set = widget.plan.sets[i];
+      if (reps == null) {
+        setState(
+          () => _error =
+              '${set.movementName} ${set.setNumber}. set — tekrar 1 ile '
+              '${Validators.maxReps} arasında tam sayı olmalı',
+        );
+        return;
+      }
+      if (weight == null) {
+        setState(
+          () => _error =
+              '${set.movementName} ${set.setNumber}. set — ağırlık 0 ile '
+              '${formatNumber(Validators.maxSetWeight)} kg arasında olmalı '
+              '(vücut ağırlığıyla yaptıysan boş bırak)',
+        );
         return;
       }
       sets.add(widget.plan.sets[i].copyWith(reps: reps, weight: weight));
@@ -243,9 +267,13 @@ class _CompleteWorkoutSheetState extends State<_CompleteWorkoutSheet> {
                   controller: _reps[index],
                   enabled: !_busy,
                   keyboardType: TextInputType.number,
+                  inputFormatters: repsInputFormatters,
                   // Fark rozetleri yazdıkça güncellensin.
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(suffixText: 'tekrar'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tekrar',
+                    hintText: 'kaç kez',
+                  ),
                 ),
               ),
               const SizedBox(width: AppSizes.gapSmall),
@@ -256,8 +284,13 @@ class _CompleteWorkoutSheetState extends State<_CompleteWorkoutSheet> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  inputFormatters: weightInputFormatters,
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(suffixText: 'kg'),
+                  decoration: const InputDecoration(
+                    labelText: 'Ağırlık',
+                    hintText: 'kaç kg',
+                    suffixText: 'kg',
+                  ),
                 ),
               ),
             ],

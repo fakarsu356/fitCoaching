@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/num_fmt.dart';
 import '../../core/theme.dart';
+import '../../core/validators.dart';
 import '../../models/relation.dart';
 import '../../models/workout.dart';
 import '../../services/services.dart';
@@ -71,6 +72,7 @@ class _WorkoutEditorSheet extends StatefulWidget {
 }
 
 class _WorkoutEditorSheetState extends State<_WorkoutEditorSheet> {
+  final _name = TextEditingController();
   final _note = TextEditingController();
   final List<_SetRow> _rows = [];
   int? _studentId;
@@ -86,6 +88,7 @@ class _WorkoutEditorSheetState extends State<_WorkoutEditorSheet> {
     final plan = widget.plan;
     if (plan != null) {
       _studentId = plan.studentId;
+      _name.text = plan.name;
       _note.text = plan.notes;
       for (final set in plan.sets) {
         _rows.add(
@@ -114,6 +117,7 @@ class _WorkoutEditorSheetState extends State<_WorkoutEditorSheet> {
     for (final row in _rows) {
       row.dispose();
     }
+    _name.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -143,20 +147,26 @@ class _WorkoutEditorSheetState extends State<_WorkoutEditorSheet> {
       final row = _rows[i];
       final movement = row.movement.text.trim();
       final reps = int.tryParse(row.reps.text.trim());
-      final weight = double.tryParse(
-        row.weight.text.trim().replaceAll(',', '.'),
-      );
+      // Ağırlık boş bırakılabilir: vücut ağırlığıyla yapılan hareketler
+      // 0 kg olarak kaydedilir.
+      final weightText = row.weight.text.trim().replaceAll(',', '.');
+      final weight = weightText.isEmpty ? 0.0 : double.tryParse(weightText);
 
       if (movement.isEmpty) {
         _error = '${i + 1}. satırda hareket adı boş';
         return null;
       }
-      if (reps == null || reps <= 0) {
-        _error = '${i + 1}. satırda tekrar sayısı hatalı';
+      if (reps == null || reps <= 0 || reps > Validators.maxReps) {
+        _error =
+            '${i + 1}. satırda tekrar 1 ile ${Validators.maxReps} arasında '
+            'tam sayı olmalı';
         return null;
       }
-      if (weight == null || weight < 0) {
-        _error = '${i + 1}. satırda ağırlık hatalı';
+      if (weight == null || weight < 0 || weight > Validators.maxSetWeight) {
+        _error =
+            '${i + 1}. satırda ağırlık 0 ile '
+            '${formatNumber(Validators.maxSetWeight)} kg arasında olmalı '
+            '(vücut ağırlığı hareketiyse boş bırak)';
         return null;
       }
 
@@ -195,16 +205,19 @@ class _WorkoutEditorSheetState extends State<_WorkoutEditorSheet> {
     setState(() => _busy = true);
 
     final workouts = context.read<AppServices>().workouts;
+    final name = _name.text.trim();
     final note = _note.text.trim();
     final result = _isEdit
         ? await workouts.updateWorkout(
             workoutId: widget.plan!.id,
             studentId: studentId,
+            name: name,
             note: note,
             sets: sets,
           )
         : await workouts.addWorkout(
             studentId: studentId,
+            name: name,
             note: note,
             sets: sets,
           );
@@ -243,6 +256,20 @@ class _WorkoutEditorSheetState extends State<_WorkoutEditorSheet> {
             ),
             const SizedBox(height: AppSizes.gapSmall),
             _buildStudentField(),
+            const SizedBox(height: AppSizes.gap),
+            LabeledField(
+              label: 'Program adı',
+              child: TextField(
+                controller: _name,
+                enabled: !_busy,
+                textCapitalization: TextCapitalization.sentences,
+                maxLength: Validators.maxWorkoutNameLength,
+                decoration: const InputDecoration(
+                  hintText: 'örn. Push Day, Bacak günü',
+                  counterText: '',
+                ),
+              ),
+            ),
             const SizedBox(height: AppSizes.gap),
             Text('Setler', style: Theme.of(context).textTheme.titleSmall),
             for (var i = 0; i < _rows.length; i++) _buildSetRow(i),
@@ -341,7 +368,12 @@ class _WorkoutEditorSheetState extends State<_WorkoutEditorSheet> {
               controller: row.movement,
               enabled: !_busy,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(hintText: 'Hareket'),
+              maxLength: Validators.maxMovementNameLength,
+              decoration: const InputDecoration(
+                labelText: 'Hareket',
+                hintText: 'örn. Bench Press',
+                counterText: '',
+              ),
             ),
           ),
           const SizedBox(width: AppSizes.gapSmall),
@@ -351,7 +383,11 @@ class _WorkoutEditorSheetState extends State<_WorkoutEditorSheet> {
               controller: row.reps,
               enabled: !_busy,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(suffixText: 'tekrar'),
+              inputFormatters: repsInputFormatters,
+              decoration: const InputDecoration(
+                labelText: 'Tekrar',
+                hintText: 'kaç kez',
+              ),
             ),
           ),
           const SizedBox(width: AppSizes.gapSmall),
@@ -363,7 +399,12 @@ class _WorkoutEditorSheetState extends State<_WorkoutEditorSheet> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: const InputDecoration(suffixText: 'kg'),
+              inputFormatters: weightInputFormatters,
+              decoration: const InputDecoration(
+                labelText: 'Ağırlık',
+                hintText: 'kaç kg',
+                suffixText: 'kg',
+              ),
             ),
           ),
           // Tek satır kalınca silme kapalı: setsiz plan gönderilemiyor.

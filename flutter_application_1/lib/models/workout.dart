@@ -98,6 +98,7 @@ class Workout {
     required this.coachId,
     required this.studentId,
     required this.notes,
+    this.name = '',
     required this.status,
     required this.generator,
     this.sourcePlanId,
@@ -108,6 +109,10 @@ class Workout {
   final int id;
   final int coachId;
   final int studentId;
+
+  /// Programın adı ("Push Day"). Koç yazarken boş bırakabilir; eski kayıtlarda
+  /// da boş gelir, o yüzden ekranlarda [displayName] kullanılıyor.
+  final String name;
   final String notes;
   final String status;
 
@@ -122,6 +127,14 @@ class Workout {
   bool get byStudent => generator;
 
   int get totalSets => sets.length;
+
+  /// Ekranlarda gösterilecek başlık. Koç ad vermediyse (ve `name` alanından
+  /// önceki kayıtlarda) eski davranış korunur: hareket adları sıralanır.
+  String get displayName {
+    final trimmed = name.trim();
+    if (trimmed.isNotEmpty) return trimmed;
+    return movements.isEmpty ? 'Antrenman' : movements.join(', ');
+  }
 
   /// Antrenmanın ait olduğu programın kimliği.
   ///
@@ -146,6 +159,7 @@ class Workout {
       id: asInt(pick(json, ['id', 'ID'])),
       coachId: asInt(pick(json, ['coach_id', 'CoachID'])),
       studentId: asInt(pick(json, ['student_id', 'StudentID'])),
+      name: asString(pick(json, ['name', 'Name'])),
       notes: asString(pick(json, ['notes', 'Notes', 'note'])),
       status: asString(pick(json, ['status', 'Status'])),
       generator: asBool(pick(json, ['generator', 'Generator'])),
